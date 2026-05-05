@@ -1,4 +1,8 @@
 from __future__ import annotations
+import configparser
+import os
+from datetime import datetime
+from pathlib import Path
 from typing import Any, List, Optional
 
 import psycopg2
@@ -52,28 +56,40 @@ class DatabaseManager:
         """Mengeksekusi query INSERT atau UPDATE dengan parameter parameterized.
 
         Parameter:
-            query: Query SQL parameterized (gunakan placeholder ? atau %s).
+            query: Query SQL parameterized (gunakan placeholder %s).
             params: Tuple nilai parameter yang menggantikan placeholder pada query.
 
         Returns:
             True jika query berhasil dieksekusi, False jika terjadi error.
         """
-        pass
+        try:
+            with self._koneksi.cursor() as cur:
+                cur.execute(query, params)
+            self._koneksi.commit()
+            return True
+        except Exception as e:
+            self._koneksi.rollback()
+            print(f"[DatabaseManager] Gagal menyimpan data: {e}", flush=True)
+            return False
 
-    # TODO
     def ambil_data(self, query: str, params: tuple = ()) -> List[Any]:
-        """Mengeksekusi query SELECT dan mengembalikan hasil sebagai list.
+        """Mengeksekusi query SELECT dan mengembalikan hasil sebagai list dict.
 
         Parameter:
             query: Query SQL SELECT parameterized.
             params: Tuple nilai parameter yang menggantikan placeholder pada query.
 
         Returns:
-            List berisi baris hasil query, atau list kosong jika tidak ada data.
+            List berisi baris hasil query sebagai dict, atau list kosong jika tidak ada data.
         """
-        pass
+        try:
+            with self._koneksi.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(query, params)
+                return [dict(row) for row in cur.fetchall()]
+        except Exception as e:
+            print(f"[DatabaseManager] Gagal mengambil data: {e}", flush=True)
+            return []
 
-    # TODO
     def hapus_data(self, query: str, params: tuple = ()) -> bool:
         """Mengeksekusi query DELETE untuk menghapus data dari database.
 
@@ -84,9 +100,16 @@ class DatabaseManager:
         Returns:
             True jika penghapusan berhasil, False jika terjadi error.
         """
-        pass
+        try:
+            with self._koneksi.cursor() as cur:
+                cur.execute(query, params)
+            self._koneksi.commit()
+            return True
+        except Exception as e:
+            self._koneksi.rollback()
+            print(f"[DatabaseManager] Gagal menghapus data: {e}", flush=True)
+            return False
 
-    # TODO
     def backup_data(self) -> bool:
         """Menyimpan salinan seluruh data ke file SQL lokal di direktori backup/.
         Nama file berdasarkan timestamp saat backup dilakukan.
