@@ -9,6 +9,8 @@ on:
 jobs:
   changes:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     outputs:
       warga: ${{ steps.filter.outputs.warga }}
       fasilitas: ${{ steps.filter.outputs.fasilitas }}
