@@ -150,9 +150,8 @@ class DataRepository:
             self._list_warga = [x for x in self._list_warga if x.id_warga != w.id_warga]
         return berhasil
 
-    # --------------------------------------------------------------- Fasilitas
+    # Fasilitas
 
-    # TODO
     def tambah_fasilitas(self, f: Fasilitas) -> bool:
         """Menyimpan objek fasilitas baru ke list in-memory dan ke database.
 
@@ -162,18 +161,26 @@ class DataRepository:
         Returns:
             True jika penyimpanan berhasil, False jika gagal.
         """
-        pass
+        query = (
+            "INSERT INTO fasilitas (id_fasilitas, nama, harga_per_jam, deskripsi, status) "
+            "VALUES (%s, %s, %s, %s, %s)"
+        )
+        berhasil = self._database_manager.simpan_data(
+            query,
+            (f.id_fasilitas, f.nama, f.harga_per_jam, f.deskripsi, f.status.value),
+        )
+        if berhasil:
+            self._list_fasilitas.append(f)
+        return berhasil
 
-    # TODO
     def get_fasilitas_list(self) -> List[Fasilitas]:
         """Mengambil seluruh data fasilitas dari list penyimpanan in-memory.
 
         Returns:
             List berisi semua objek Fasilitas.
         """
-        pass
+        return list(self._list_fasilitas)
 
-    # TODO
     def cari_fasilitas(self, id_fasilitas: str) -> Optional[Fasilitas]:
         """Mencari dan mengembalikan objek Fasilitas berdasarkan ID.
 
@@ -183,9 +190,11 @@ class DataRepository:
         Returns:
             Objek Fasilitas jika ditemukan, None jika tidak ada.
         """
-        pass
+        for f in self._list_fasilitas:
+            if f.id_fasilitas == id_fasilitas:
+                return f
+        return None
 
-    # TODO
     def ubah_fasilitas(self, f: Fasilitas) -> bool:
         """Memperbarui data fasilitas yang sudah tersimpan di list dan database.
 
@@ -195,9 +204,24 @@ class DataRepository:
         Returns:
             True jika pembaruan berhasil, False jika fasilitas tidak ditemukan.
         """
-        pass
+        indeks = next(
+            (i for i, x in enumerate(self._list_fasilitas) if x.id_fasilitas == f.id_fasilitas),
+            None,
+        )
+        if indeks is None:
+            return False
+        query = (
+            "UPDATE fasilitas SET nama=%s, harga_per_jam=%s, deskripsi=%s, status=%s "
+            "WHERE id_fasilitas=%s"
+        )
+        berhasil = self._database_manager.simpan_data(
+            query,
+            (f.nama, f.harga_per_jam, f.deskripsi, f.status.value, f.id_fasilitas),
+        )
+        if berhasil:
+            self._list_fasilitas[indeks] = f
+        return berhasil
 
-    # TODO
     def hapus_fasilitas(self, f: Fasilitas) -> bool:
         """Menghapus objek fasilitas dari list in-memory dan database.
 
@@ -207,11 +231,19 @@ class DataRepository:
         Returns:
             True jika penghapusan berhasil, False jika fasilitas tidak ditemukan.
         """
-        pass
+        if not self.cari_fasilitas(f.id_fasilitas):
+            return False
+        berhasil = self._database_manager.hapus_data(
+            "DELETE FROM fasilitas WHERE id_fasilitas=%s", (f.id_fasilitas,)
+        )
+        if berhasil:
+            self._list_fasilitas = [
+                x for x in self._list_fasilitas if x.id_fasilitas != f.id_fasilitas
+            ]
+        return berhasil
 
-    # --------------------------------------------------------------- Reservasi
+    # Reservasi
 
-    # TODO
     def tambah_reservasi(self, r: Reservasi) -> bool:
         """Menambahkan reservasi ke list in-memory dan mengeksekusi INSERT ke database.
 
