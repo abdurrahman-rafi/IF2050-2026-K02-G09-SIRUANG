@@ -7,17 +7,45 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  changes:
     runs-on: ubuntu-latest
+    outputs:
+      warga: ${{ steps.filter.outputs.warga }}
+      fasilitas: ${{ steps.filter.outputs.fasilitas }}
+      reservasi: ${{ steps.filter.outputs.reservasi }}
+      laporan: ${{ steps.filter.outputs.laporan }}
+      notifikasi: ${{ steps.filter.outputs.notifikasi }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            warga:
+              - 'src/**/*warga*'
+              - 'tests/test_warga.py'
+            fasilitas:
+              - 'src/**/*fasilitas*'
+              - 'tests/test_fasilitas.py'
+            reservasi:
+              - 'src/**/*reservasi*'
+              - 'tests/test_reservasi.py'
+            laporan:
+              - 'src/**/*laporan*'
+              - 'tests/test_laporan.py'
+            notifikasi:
+              - 'src/**/*notifikasi*'
+              - 'tests/test_notifikasi.py'
 
+  test:
+    needs: changes
+    runs-on: ubuntu-latest
     env:
       QT_QPA_PLATFORM: offscreen
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
@@ -27,5 +55,17 @@ jobs:
           pip install pytest
           pip install mysql-connector-python
 
-      - name: Run tests
-        run: pytest tests/ -v
+      - name: Run relevant tests
+        run: |
+          FILES=""
+          [ "${{ needs.changes.outputs.warga }}"      = "true" ] && FILES="$FILES tests/test_warga.py"
+          [ "${{ needs.changes.outputs.fasilitas }}"  = "true" ] && FILES="$FILES tests/test_fasilitas.py"
+          [ "${{ needs.changes.outputs.reservasi }}"  = "true" ] && FILES="$FILES tests/test_reservasi.py"
+          [ "${{ needs.changes.outputs.laporan }}"    = "true" ] && FILES="$FILES tests/test_laporan.py"
+          [ "${{ needs.changes.outputs.notifikasi }}" = "true" ] && FILES="$FILES tests/test_notifikasi.py"
+
+          if [ -z "$FILES" ]; then
+            echo "No feature files changed — skipping tests."
+          else
+            pytest $FILES -v
+          fi
