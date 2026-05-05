@@ -1,6 +1,9 @@
 from __future__ import annotations
 from typing import Any, List, Optional
 
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
 
 class DatabaseManager:
     """Mengelola koneksi ke database, eksekusi query parameterized, dan backup data lokal."""
@@ -9,21 +12,42 @@ class DatabaseManager:
         self._koneksi: Optional[Any] = None
         self._url_database: str = url_database
 
-    # TODO
+    def _resolusi_url(self) -> str:
+        """Menentukan URL koneksi dari atribut, env var, atau config.ini."""
+        if self._url_database:
+            return self._url_database
+        url_env = os.environ.get("SIRUANG_DB_URL", "")
+        if url_env:
+            return url_env
+        config_path = Path(__file__).parents[2] / "config.ini"
+        if config_path.exists():
+            cfg = configparser.ConfigParser()
+            cfg.read(config_path)
+            return cfg.get("database", "url", fallback="")
+        return ""
+
     def buka_koneksi(self) -> bool:
         """Membuka koneksi ke database menggunakan url_database yang dikonfigurasi.
 
         Returns:
             True jika koneksi berhasil dibuka, False jika gagal.
         """
-        pass
+        try:
+            url = self._resolusi_url()
+            self._koneksi = psycopg2.connect(url)
+            return True
+        except Exception as e:
+            print(f"[DatabaseManager] Gagal membuka koneksi: {e}", flush=True)
+            return False
 
-    # TODO
     def tutup_koneksi(self) -> None:
         """Menutup koneksi ke database setelah semua operasi selesai."""
-        pass
+        try:
+            if self._koneksi and not self._koneksi.closed:
+                self._koneksi.close()
+        except Exception as e:
+            print(f"[DatabaseManager] Gagal menutup koneksi: {e}", flush=True)
 
-    # TODO
     def simpan_data(self, query: str, params: tuple = ()) -> bool:
         """Mengeksekusi query INSERT atau UPDATE dengan parameter parameterized.
 
