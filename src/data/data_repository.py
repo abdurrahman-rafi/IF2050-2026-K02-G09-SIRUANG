@@ -1,15 +1,16 @@
 from __future__ import annotations
-from datetime import date
+from datetime import date, time
+from decimal import Decimal
 from typing import TYPE_CHECKING, List, Optional
 
-from src.entity.enums import StatusReservasi
+from src.entity.enums import StatusFasilitas, StatusReservasi
+from src.entity.fasilitas import Fasilitas
+from src.entity.notifikasi import Notifikasi
+from src.entity.reservasi import Reservasi
+from src.entity.warga import Warga
 
 if TYPE_CHECKING:
     from src.data.database_manager import DatabaseManager
-    from src.entity.fasilitas import Fasilitas
-    from src.entity.notifikasi import Notifikasi
-    from src.entity.reservasi import Reservasi
-    from src.entity.warga import Warga
 
 
 class DataRepository:
@@ -22,10 +23,53 @@ class DataRepository:
         self._list_fasilitas: List[Fasilitas] = []
         self._list_reservasi: List[Reservasi] = []
         self._list_notifikasi: List[Notifikasi] = []
+        self._muat_data()
 
-    # ------------------------------------------------------------------ Warga
+    def _muat_data(self) -> None:
+        """Memuat seluruh data dari database ke list in-memory saat inisialisasi."""
+        for row in self._database_manager.ambil_data("SELECT * FROM warga", ()):
+            self._list_warga.append(
+                Warga(row["id_warga"], row["nama"], row["alamat"], row["no_hp"])
+            )
 
-    # TODO
+        for row in self._database_manager.ambil_data("SELECT * FROM fasilitas", ()):
+            self._list_fasilitas.append(
+                Fasilitas(
+                    row["id_fasilitas"],
+                    row["nama"],
+                    Decimal(str(row["harga_per_jam"])),
+                    row["deskripsi"] or "",
+                    StatusFasilitas(row["status"]),
+                )
+            )
+
+        for row in self._database_manager.ambil_data("SELECT * FROM reservasi", ()):
+            self._list_reservasi.append(
+                Reservasi(
+                    row["id_reservasi"],
+                    row["id_warga"],
+                    row["id_fasilitas"],
+                    row["tanggal_dibuat"],
+                    row["jam_mulai"] if isinstance(row["jam_mulai"], time) else time.fromisoformat(str(row["jam_mulai"])),
+                    row["jam_selesai"] if isinstance(row["jam_selesai"], time) else time.fromisoformat(str(row["jam_selesai"])),
+                    Decimal(str(row["total_biaya"])),
+                    StatusReservasi(row["status"]),
+                )
+            )
+
+        for row in self._database_manager.ambil_data("SELECT * FROM notifikasi", ()):
+            self._list_notifikasi.append(
+                Notifikasi(
+                    row["id_notifikasi"],
+                    row["id_reservasi"],
+                    row["pesan_notifikasi"],
+                    row["waktu_kirim"],
+                    bool(row["sudah_dibaca"]),
+                )
+            )
+
+    # Warga
+
     def tambah_warga(self, w: Warga) -> bool:
         """Menyimpan objek warga baru ke list in-memory dan ke database.
 
@@ -35,18 +79,22 @@ class DataRepository:
         Returns:
             True jika penyimpanan berhasil, False jika gagal.
         """
-        pass
+        query = "INSERT INTO warga (id_warga, nama, alamat, no_hp) VALUES (%s, %s, %s, %s)"
+        berhasil = self._database_manager.simpan_data(
+            query, (w.id_warga, w.nama, w.alamat, w.no_hp)
+        )
+        if berhasil:
+            self._list_warga.append(w)
+        return berhasil
 
-    # TODO
     def get_warga_list(self) -> List[Warga]:
         """Mengambil seluruh data warga dari list penyimpanan in-memory.
 
         Returns:
             List berisi semua objek Warga.
         """
-        pass
+        return list(self._list_warga)
 
-    # TODO
     def cari_warga(self, id_warga: str) -> Optional[Warga]:
         """Mencari dan mengembalikan objek Warga berdasarkan ID.
 
@@ -56,7 +104,10 @@ class DataRepository:
         Returns:
             Objek Warga jika ditemukan, None jika tidak ada.
         """
-        pass
+        for w in self._list_warga:
+            if w.id_warga == id_warga:
+                return w
+        return None
 
     # TODO
     def ubah_warga(self, w: Warga) -> bool:
@@ -68,9 +119,19 @@ class DataRepository:
         Returns:
             True jika pembaruan berhasil, False jika warga tidak ditemukan.
         """
-        pass
+        indeks = next(
+            (i for i, x in enumerate(self._list_warga) if x.id_warga == w.id_warga), None
+        )
+        if indeks is None:
+            return False
+        query = "UPDATE warga SET nama=%s, alamat=%s, no_hp=%s WHERE id_warga=%s"
+        berhasil = self._database_manager.simpan_data(
+            query, (w.nama, w.alamat, w.no_hp, w.id_warga)
+        )
+        if berhasil:
+            self._list_warga[indeks] = w
+        return berhasil
 
-    # TODO
     def hapus_warga(self, w: Warga) -> bool:
         """Menghapus objek warga dari list in-memory dan database.
 
@@ -80,7 +141,14 @@ class DataRepository:
         Returns:
             True jika penghapusan berhasil, False jika warga tidak ditemukan.
         """
-        pass
+        if not self.cari_warga(w.id_warga):
+            return False
+        berhasil = self._database_manager.hapus_data(
+            "DELETE FROM warga WHERE id_warga=%s", (w.id_warga,)
+        )
+        if berhasil:
+            self._list_warga = [x for x in self._list_warga if x.id_warga != w.id_warga]
+        return berhasil
 
     # --------------------------------------------------------------- Fasilitas
 
