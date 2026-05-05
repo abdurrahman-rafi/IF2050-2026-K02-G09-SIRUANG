@@ -253,18 +253,37 @@ class DataRepository:
         Returns:
             True jika penyimpanan berhasil, False jika gagal.
         """
-        pass
+        # Q-001
+        query = (
+            "INSERT INTO reservasi "
+            "(id_reservasi, id_warga, id_fasilitas, tanggal_dibuat, jam_mulai, jam_selesai, total_biaya, status) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+        )
+        berhasil = self._database_manager.simpan_data(
+            query,
+            (
+                r.id_reservasi,
+                r.id_warga,
+                r.id_fasilitas,
+                r.tanggal_dibuat,
+                r.jam_mulai,
+                r.jam_selesai,
+                r.total_biaya,
+                r.status.value,
+            ),
+        )
+        if berhasil:
+            self._list_reservasi.append(r)
+        return berhasil
 
-    # TODO
     def get_list_reservasi(self) -> List[Reservasi]:
         """Mengambil seluruh data reservasi dari list penyimpanan in-memory.
 
         Returns:
             List berisi semua objek Reservasi.
         """
-        pass
+        return list(self._list_reservasi)
 
-    # TODO
     def cari_reservasi(self, id_reservasi: str) -> Optional[Reservasi]:
         """Mencari dan mengembalikan objek Reservasi berdasarkan ID.
 
@@ -274,9 +293,11 @@ class DataRepository:
         Returns:
             Objek Reservasi jika ditemukan, None jika tidak ada.
         """
-        pass
+        for r in self._list_reservasi:
+            if r.id_reservasi == id_reservasi:
+                return r
+        return None
 
-    # TODO
     def cari_reservasi_by_fasilitas_by_tanggal(
         self, id_fasilitas: str, tanggal: date
     ) -> List[Reservasi]:
@@ -289,9 +310,12 @@ class DataRepository:
         Returns:
             List Reservasi yang cocok dengan fasilitas dan tanggal tersebut.
         """
-        pass
+        # Q-002
+        return [
+            r for r in self._list_reservasi
+            if r.id_fasilitas == id_fasilitas and r.tanggal_dibuat == tanggal
+        ]
 
-    # TODO
     def cari_reservasi_by_date_range(
         self, tanggal_mulai: date, tanggal_selesai: date
     ) -> List[Reservasi]:
@@ -304,9 +328,12 @@ class DataRepository:
         Returns:
             List Reservasi yang jatuh dalam rentang tanggal tersebut.
         """
-        pass
+        # Q-003
+        return [
+            r for r in self._list_reservasi
+            if tanggal_mulai <= r.tanggal_dibuat <= tanggal_selesai
+        ]
 
-    # TODO
     def cari_reservasi_by_fasilitas(self, id_fasilitas: str) -> List[Reservasi]:
         """Mencari seluruh riwayat reservasi berdasarkan fasilitas tertentu untuk laporan.
 
@@ -316,9 +343,9 @@ class DataRepository:
         Returns:
             List semua Reservasi untuk fasilitas tersebut.
         """
-        pass
+        # Q-004
+        return [r for r in self._list_reservasi if r.id_fasilitas == id_fasilitas]
 
-    # TODO
     def update_status_reservasi(self, id_reservasi: str, status: StatusReservasi) -> bool:
         """Memperbarui status reservasi di list in-memory dan database.
 
@@ -329,9 +356,18 @@ class DataRepository:
         Returns:
             True jika pembaruan berhasil, False jika reservasi tidak ditemukan.
         """
-        pass
+        r = self.cari_reservasi(id_reservasi)
+        if r is None:
+            return False
+        # Q-005
+        berhasil = self._database_manager.simpan_data(
+            "UPDATE reservasi SET status=%s WHERE id_reservasi=%s",
+            (status.value, id_reservasi),
+        )
+        if berhasil:
+            r.status = status
+        return berhasil
 
-    # TODO
     def hapus_reservasi(self, r: Reservasi) -> bool:
         """Menghapus objek reservasi dari list in-memory dan database.
 
@@ -341,11 +377,19 @@ class DataRepository:
         Returns:
             True jika penghapusan berhasil, False jika reservasi tidak ditemukan.
         """
-        pass
+        if not self.cari_reservasi(r.id_reservasi):
+            return False
+        berhasil = self._database_manager.hapus_data(
+            "DELETE FROM reservasi WHERE id_reservasi=%s", (r.id_reservasi,)
+        )
+        if berhasil:
+            self._list_reservasi = [
+                x for x in self._list_reservasi if x.id_reservasi != r.id_reservasi
+            ]
+        return berhasil
 
-    # ------------------------------------------------------------- Notifikasi
+    # Notifikasi
 
-    # TODO
     def tambah_notifikasi(self, n: Notifikasi) -> bool:
         """Menyimpan objek notifikasi baru ke list in-memory dan ke database.
 
