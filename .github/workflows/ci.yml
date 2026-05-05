@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
+      contents: read
     outputs:
       warga: ${{ steps.filter.outputs.warga }}
       fasilitas: ${{ steps.filter.outputs.fasilitas }}
