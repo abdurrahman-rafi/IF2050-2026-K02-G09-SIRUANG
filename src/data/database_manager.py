@@ -117,4 +117,30 @@ class DatabaseManager:
         Returns:
             True jika backup berhasil, False jika terjadi error.
         """
-        pass
+        try:
+            backup_dir = Path(__file__).parents[2] / "backup"
+            backup_dir.mkdir(exist_ok=True)
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = backup_dir / f"siruang_backup_{timestamp}.sql"
+
+            tabel = ["warga", "fasilitas", "reservasi", "notifikasi"]
+            baris_sql: list[str] = []
+
+            for nama_tabel in tabel:
+                rows = self.ambil_data(f"SELECT * FROM {nama_tabel}", ())
+                if not rows:
+                    continue
+                kolom = ", ".join(rows[0].keys())
+                for row in rows:
+                    nilai = ", ".join(
+                        f"'{str(v).replace(chr(39), chr(39)*2)}'" if v is not None else "NULL"
+                        for v in row.values()
+                    )
+                    baris_sql.append(f"INSERT INTO {nama_tabel} ({kolom}) VALUES ({nilai});")
+
+            backup_path.write_text("\n".join(baris_sql), encoding="utf-8")
+            return True
+        except Exception as e:
+            print(f"[DatabaseManager] Gagal backup data: {e}", flush=True)
+            return False
