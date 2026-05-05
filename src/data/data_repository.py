@@ -109,7 +109,6 @@ class DataRepository:
                 return w
         return None
 
-    # TODO
     def ubah_warga(self, w: Warga) -> bool:
         """Memperbarui data warga yang sudah tersimpan di list dan database.
 
@@ -399,9 +398,19 @@ class DataRepository:
         Returns:
             True jika penyimpanan berhasil, False jika gagal.
         """
-        pass
+        query = (
+            "INSERT INTO notifikasi "
+            "(id_notifikasi, id_reservasi, pesan_notifikasi, waktu_kirim, sudah_dibaca) "
+            "VALUES (%s, %s, %s, %s, %s)"
+        )
+        berhasil = self._database_manager.simpan_data(
+            query,
+            (n.id_notifikasi, n.id_reservasi, n.pesan_notifikasi, n.waktu_kirim, n.sudah_dibaca),
+        )
+        if berhasil:
+            self._list_notifikasi.append(n)
+        return berhasil
 
-    # TODO
     def cari_notifikasi(self, id_notifikasi: str) -> Optional[Notifikasi]:
         """Mencari dan mengembalikan objek Notifikasi berdasarkan ID.
 
@@ -411,13 +420,15 @@ class DataRepository:
         Returns:
             Objek Notifikasi jika ditemukan, None jika tidak ada.
         """
-        pass
+        for n in self._list_notifikasi:
+            if n.id_notifikasi == id_notifikasi:
+                return n
+        return None
 
-    # TODO
     def get_list_notifikasi(self) -> List[Notifikasi]:
         """Mengambil seluruh data notifikasi dari list penyimpanan in-memory.
 
         Returns:
             List berisi semua objek Notifikasi.
         """
-        pass
+        return list(self._list_notifikasi)
