@@ -18,6 +18,7 @@ jobs:
       reservasi: ${{ steps.filter.outputs.reservasi }}
       laporan: ${{ steps.filter.outputs.laporan }}
       notifikasi: ${{ steps.filter.outputs.notifikasi }}
+      data_layer: ${{ steps.filter.outputs.data_layer }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -39,6 +40,10 @@ jobs:
             notifikasi:
               - 'src/**/*notifikasi*'
               - 'tests/test_notifikasi.py'
+            data_layer:
+              - 'src/data/**'
+              - 'tests/test_database_manager.py'
+              - 'tests/test_data_repository.py'
 
   test:
     needs: changes
@@ -55,8 +60,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install pytest
-          pip install mysql-connector-python
+          pip install pytest psycopg2-binary
 
       - name: Run relevant tests
         run: |
@@ -66,6 +70,7 @@ jobs:
           [ "${{ needs.changes.outputs.reservasi }}"  = "true" ] && FILES="$FILES tests/test_reservasi.py"
           [ "${{ needs.changes.outputs.laporan }}"    = "true" ] && FILES="$FILES tests/test_laporan.py"
           [ "${{ needs.changes.outputs.notifikasi }}" = "true" ] && FILES="$FILES tests/test_notifikasi.py"
+          [ "${{ needs.changes.outputs.data_layer }}" = "true" ] && FILES="$FILES tests/test_database_manager.py tests/test_data_repository.py"
 
           if [ -z "$FILES" ]; then
             echo "No feature files changed — skipping tests."

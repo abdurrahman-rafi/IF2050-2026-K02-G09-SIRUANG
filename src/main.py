@@ -13,7 +13,7 @@ from src.service.notification_service import NotificationService
 from src.view.main_window import MainWindow
 
 # TODO: pindahkan konfigurasi database ke file .env atau config.ini
-DATABASE_URL = "mysql+mysqlconnector://root:password@localhost:3306/siruang"
+DATABASE_URL = "postgresql://postgres:password@localhost:5432/siruang"
 
 
 def main() -> None:
