@@ -1,4 +1,8 @@
 from __future__ import annotations
+
+import logging
+import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
@@ -6,6 +10,10 @@ if TYPE_CHECKING:
     from src.entity.notifikasi import Notifikasi
     from src.entity.reservasi import Reservasi
     from src.service.notification_service import NotificationService
+
+THRESHOLD_MENIT: int = 30
+
+logger = logging.getLogger(__name__)
 
 
 class NotifikasiController:
@@ -19,7 +27,6 @@ class NotifikasiController:
         self._data_repository: DataRepository = data_repository
         self._notification_service: NotificationService = notification_service
 
-    # TODO
     def periksa_reservasi_akan_berakhir(
         self, list_reservasi: List[Reservasi]
     ) -> List[Reservasi]:
@@ -31,50 +38,15 @@ class NotifikasiController:
         Returns:
             List Reservasi yang jam selesainya akan segera tiba.
         """
-        pass
+        hasil: list[Reservasi] = []
+        sekarang = datetime.now()
 
-    # TODO
-    def kirim_notifikasi(self, id_reservasi: str) -> Optional[Notifikasi]:
-        """Memanggil NotificationService untuk mengirimkan notifikasi in-app ke pengelola.
+        for reservasi in list_reservasi:
+            jam_selesai: Optional[datetime] = getattr(reservasi, "jam_selesai", None)
+            if jam_selesai is None:
+                continue
 
-        Parameter:
-            id_reservasi: ID reservasi yang menjadi subjek notifikasi.
-
-        Returns:
-            Objek Notifikasi yang berhasil dikirim, atau None jika gagal.
-        """
-        pass
-
-    # TODO
-    def sudah_dibaca(self, id_notifikasi: str) -> bool:
-        """Memperbarui atribut sudah_dibaca pada notifikasi menjadi True.
-
-        Parameter:
-            id_notifikasi: ID notifikasi yang akan ditandai sudah dibaca.
-
-        Returns:
-            True jika pembaruan berhasil, False jika notifikasi tidak ditemukan.
-        """
-        pass
-
-    # TODO
-    def lihat_daftar_notifikasi(self) -> List[Notifikasi]:
-        """Mengambil seluruh daftar notifikasi yang tersimpan di DataRepository.
-
-        Returns:
-            List berisi semua objek Notifikasi.
-        """
-        pass
-
-    # TODO
-    def create_notifikasi(self, id_reservasi: str, pesan: str) -> bool:
-        """Mengatur logika pembuatan dan penyimpanan data notifikasi baru.
-
-        Parameter:
-            id_reservasi: ID reservasi yang menjadi subjek notifikasi.
-            pesan: Isi pesan notifikasi (berisi nama fasilitas, nama warga, dan jam selesai).
-
-        Returns:
-            True jika notifikasi berhasil dibuat dan disimpan, False jika gagal.
-        """
-        pass
+            try:
+                selisih_menit = (jam_selesai - sekarang).total_seconds() / 60
+            except Exception as e:
+                logger.exception("Gagal menghitung selisih waktu untuk reservasi %s: %s", getattr(reserv
