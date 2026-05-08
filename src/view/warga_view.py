@@ -185,9 +185,15 @@ class WargaView(QWidget):
         if not self.tampilkan_konfirmasi_hapus(id_warga):
             return
 
+        if self._warga_controller.cek_reservasi_aktif_warga(id_warga):
+            self.tampilkan_pesan_error(
+                "Data warga tidak dapat dihapus karena masih memiliki reservasi aktif."
+            )
+            return
+
         if self._warga_controller.hapus_warga(id_warga):
             self.tampilkan_pesan_berhasil("Data warga berhasil dihapus.")
-            self._filter_tabel_warga(self._search_input.text() if self._search_input else "")
+            self.tampilkan_daftar_warga()
         else:
             self.tampilkan_pesan_error(
                 "Data warga gagal dihapus. Pastikan warga tidak memiliki reservasi aktif."
@@ -217,8 +223,11 @@ class WargaView(QWidget):
         header_layout.addStretch()
         tombol_edit = QPushButton("Edit")
         tombol_edit.clicked.connect(lambda: self.tampilkan_form_ubah_warga(id_warga))
+        tombol_hapus = QPushButton("Hapus")
+        tombol_hapus.clicked.connect(lambda: self._hapus_warga_dari_tabel(id_warga))
         header_layout.addWidget(tombol_kembali)
         header_layout.addWidget(tombol_edit)
+        header_layout.addWidget(tombol_hapus)
 
         detail_layout = QVBoxLayout()
         detail_layout.setSpacing(8)
@@ -329,14 +338,15 @@ class WargaView(QWidget):
         warga = self._warga_controller.lihat_detail_warga(id_warga)
         nama_warga = warga.nama if warga is not None else id_warga
 
-        jawaban = QMessageBox.question(
-            self,
-            "Konfirmasi Hapus",
-            f"Apakah Anda yakin ingin menghapus data warga {nama_warga}?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        return jawaban == QMessageBox.StandardButton.Yes
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle("Konfirmasi Hapus")
+        dialog.setText(f"Apakah Anda yakin ingin menghapus data warga {nama_warga}?")
+        tombol_ya = dialog.addButton("Ya", QMessageBox.ButtonRole.YesRole)
+        dialog.addButton("Batal", QMessageBox.ButtonRole.RejectRole)
+        dialog.setDefaultButton(tombol_ya)
+        dialog.exec()
+
+        return dialog.clickedButton() == tombol_ya
 
     def tampilkan_pesan_berhasil(self, pesan: str) -> None:
         """Menampilkan dialog notifikasi pesan sukses setelah operasi berhasil diproses.
