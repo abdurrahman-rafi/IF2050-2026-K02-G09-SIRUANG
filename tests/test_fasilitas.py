@@ -7,10 +7,6 @@ from src.entity.fasilitas import Fasilitas
 from src.entity.enums import StatusFasilitas, StatusReservasi
 
 
-# ------------------------------------------------------------------ #
-# Fixtures                                                             #
-# ------------------------------------------------------------------ #
-
 @pytest.fixture
 def mock_repo():
     """DataRepository palsu (mock) untuk testing tanpa database sungguhan."""
@@ -40,10 +36,6 @@ def _buat_reservasi_mock(id_fasilitas: str, status: StatusReservasi) -> MagicMoc
     r.status = status
     return r
 
-
-# ------------------------------------------------------------------ #
-# Test suite                                                           #
-# ------------------------------------------------------------------ #
 
 class TestFasilitasController:
     """Test suite untuk FasilitasController (UC05-UC08)."""
