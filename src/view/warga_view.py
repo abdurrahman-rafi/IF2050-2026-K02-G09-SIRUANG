@@ -3,6 +3,9 @@ from typing import TYPE_CHECKING, List
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -36,10 +39,32 @@ class WargaView(QWidget):
         self._search_input: QLineEdit | None = None
         self._table_warga: QTableWidget | None = None
 
-    # TODO
     def tampilkan_form_tambah_warga(self) -> None:
         """Menampilkan dialog form input data warga baru (nama, alamat, nomor HP)."""
-        pass
+        dialog, nama_input, alamat_input, no_hp_input, button_box = self._buat_dialog_warga(
+            "Tambah Warga"
+        )
+
+        def simpan() -> None:
+            nama = nama_input.text().strip()
+            alamat = alamat_input.text().strip()
+            no_hp = no_hp_input.text().strip()
+
+            pesan_error = self._validasi_input_warga(nama, alamat, no_hp)
+            if pesan_error:
+                self.tampilkan_pesan_error("\n".join(pesan_error))
+                return
+
+            if self._warga_controller.tambah_warga(nama, alamat, no_hp):
+                dialog.accept()
+                self.tampilkan_pesan_berhasil("Data warga berhasil ditambahkan.")
+                self.tampilkan_daftar_warga()
+            else:
+                self.tampilkan_pesan_error("Data warga gagal ditambahkan.")
+
+        button_box.accepted.connect(simpan)
+        button_box.rejected.connect(dialog.reject)
+        dialog.exec()
 
     def tampilkan_daftar_warga(self) -> None:
         """Menampilkan halaman daftar warga dalam format tabel dengan fitur pencarian
@@ -190,7 +215,10 @@ class WargaView(QWidget):
 
         header_layout.addWidget(title)
         header_layout.addStretch()
+        tombol_edit = QPushButton("Edit")
+        tombol_edit.clicked.connect(lambda: self.tampilkan_form_ubah_warga(id_warga))
         header_layout.addWidget(tombol_kembali)
+        header_layout.addWidget(tombol_edit)
 
         detail_layout = QVBoxLayout()
         detail_layout.setSpacing(8)
@@ -202,14 +230,92 @@ class WargaView(QWidget):
         root_layout.addLayout(detail_layout)
         root_layout.addStretch()
 
-    # TODO
     def tampilkan_form_ubah_warga(self, id_warga: str) -> None:
         """Menampilkan form edit dengan data warga yang sudah ada sebagai nilai awal.
 
         Parameter:
             id_warga: ID warga yang datanya akan diubah.
         """
-        pass
+        warga = self._warga_controller.lihat_detail_warga(id_warga)
+        if warga is None:
+            self.tampilkan_pesan_error("Data warga tidak ditemukan.")
+            return
+
+        dialog, nama_input, alamat_input, no_hp_input, button_box = self._buat_dialog_warga(
+            "Edit Warga", warga.nama, warga.alamat, warga.no_hp
+        )
+
+        def simpan() -> None:
+            nama = nama_input.text().strip()
+            alamat = alamat_input.text().strip()
+            no_hp = no_hp_input.text().strip()
+
+            pesan_error = self._validasi_input_warga(nama, alamat, no_hp)
+            if pesan_error:
+                self.tampilkan_pesan_error("\n".join(pesan_error))
+                return
+
+            if self._warga_controller.ubah_warga(id_warga, nama, alamat, no_hp):
+                dialog.accept()
+                self.tampilkan_pesan_berhasil("Data warga berhasil diperbarui.")
+                self.tampilkan_daftar_warga()
+            else:
+                self.tampilkan_pesan_error("Data warga gagal diperbarui.")
+
+        button_box.accepted.connect(simpan)
+        button_box.rejected.connect(dialog.reject)
+        dialog.exec()
+
+    def _buat_dialog_warga(
+        self,
+        judul: str,
+        nama: str = "",
+        alamat: str = "",
+        no_hp: str = "",
+    ) -> tuple[QDialog, QLineEdit, QLineEdit, QLineEdit, QDialogButtonBox]:
+        dialog = QDialog(self)
+        dialog.setWindowTitle(judul)
+        dialog.setModal(True)
+
+        layout = QVBoxLayout(dialog)
+        form_layout = QFormLayout()
+
+        nama_input = QLineEdit(nama)
+        alamat_input = QLineEdit(alamat)
+        no_hp_input = QLineEdit(no_hp)
+        no_hp_input.setPlaceholderText("10-13 digit angka")
+
+        form_layout.addRow("Nama", nama_input)
+        form_layout.addRow("Alamat", alamat_input)
+        form_layout.addRow("No. HP", no_hp_input)
+
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
+        )
+        button_box.button(QDialogButtonBox.StandardButton.Save).setText("Simpan")
+        button_box.button(QDialogButtonBox.StandardButton.Cancel).setText("Batal")
+
+        layout.addLayout(form_layout)
+        layout.addWidget(button_box)
+
+        return dialog, nama_input, alamat_input, no_hp_input, button_box
+
+    def _validasi_input_warga(self, nama: str, alamat: str, no_hp: str) -> List[str]:
+        pesan_error: List[str] = []
+        if not nama:
+            pesan_error.append("Nama tidak boleh kosong.")
+        if not alamat:
+            pesan_error.append("Alamat tidak boleh kosong.")
+        if not no_hp:
+            pesan_error.append("No. HP tidak boleh kosong.")
+        elif not no_hp.isdigit():
+            pesan_error.append("No. HP hanya boleh berisi angka.")
+        elif not 10 <= len(no_hp) <= 13:
+            pesan_error.append("No. HP harus terdiri dari 10 sampai 13 digit.")
+        elif not self._warga_controller.validasi_data_warga(nama, alamat, no_hp):
+            pesan_error.append("Data warga tidak valid.")
+
+        return pesan_error
 
     def tampilkan_konfirmasi_hapus(self, id_warga: str) -> bool:
         """Menampilkan dialog konfirmasi sebelum proses penghapusan warga dijalankan.
