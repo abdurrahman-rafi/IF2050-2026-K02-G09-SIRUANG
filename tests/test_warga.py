@@ -1,60 +1,176 @@
+from datetime import date, time
+from decimal import Decimal
+from unittest.mock import MagicMock
+from uuid import UUID
+
 import pytest
+
+from src.controller.warga_controller import WargaController
+from src.data.data_repository import DataRepository
+from src.entity.enums import StatusReservasi
+from src.entity.reservasi import Reservasi
+from src.entity.warga import Warga
+
+
+@pytest.fixture
+def mock_db():
+    db = MagicMock()
+    db.ambil_data.return_value = []
+    db.simpan_data.return_value = True
+    db.hapus_data.return_value = True
+    return db
+
+
+@pytest.fixture
+def repo(mock_db):
+    return DataRepository(mock_db)
+
+
+@pytest.fixture
+def controller(repo):
+    return WargaController(repo)
+
+
+@pytest.fixture
+def warga():
+    return Warga("w-001", "Andi Pratama", "Jl. Merdeka 1", "08123456789")
+
+
+def buat_reservasi(id_warga: str, status: StatusReservasi) -> Reservasi:
+    return Reservasi(
+        "r-001",
+        id_warga,
+        "f-001",
+        date(2026, 5, 5),
+        time(9, 0),
+        time(11, 0),
+        Decimal("100000.00"),
+        status,
+    )
+
+
+class TestWargaEntity:
+    """Test suite untuk entity Warga."""
+
+    def test_validate_data_valid(self):
+        warga = Warga("w-001", "Andi", "Jl. Merdeka 1", "08123456789")
+
+        assert warga.validate_data() is True
+
+    def test_validate_data_nama_kosong(self):
+        warga = Warga("w-001", "", "Jl. Merdeka 1", "08123456789")
+
+        assert warga.validate_data() is False
+
+    def test_validate_data_no_hp_tidak_valid(self):
+        warga = Warga("w-001", "Andi", "Jl. Merdeka 1", "08123abc789")
+
+        assert warga.validate_data() is False
 
 
 class TestWargaController:
     """Test suite untuk WargaController (UC01-UC04)."""
 
-    # TODO
-    def test_tambah_warga_valid(self):
-        """Menguji penambahan warga dengan data yang valid harus berhasil."""
-        pass
+    def test_tambah_warga_valid(self, controller, repo):
+        result = controller.tambah_warga("Andi Pratama", "Jl. Merdeka 1", "08123456789")
 
-    # TODO
-    def test_tambah_warga_nama_kosong(self):
-        """Menguji penambahan warga dengan nama kosong harus gagal."""
-        pass
+        daftar_warga = repo.get_warga_list()
+        assert result is True
+        assert len(daftar_warga) == 1
+        assert daftar_warga[0].nama == "Andi Pratama"
+        UUID(daftar_warga[0].id_warga)
 
-    # TODO
-    def test_tambah_warga_no_hp_tidak_valid(self):
-        """Menguji penambahan warga dengan nomor HP berisi huruf harus gagal."""
-        pass
+    def test_tambah_warga_nama_kosong(self, controller, repo, mock_db):
+        result = controller.tambah_warga("", "Jl. Merdeka 1", "08123456789")
 
-    # TODO
-    def test_lihat_daftar_warga(self):
-        """Menguji pengambilan daftar warga mengembalikan semua warga tersimpan."""
-        pass
+        assert result is False
+        assert repo.get_warga_list() == []
+        mock_db.simpan_data.assert_not_called()
 
-    # TODO
-    def test_lihat_detail_warga_ditemukan(self):
-        """Menguji pengambilan detail warga berdasarkan ID yang ada."""
-        pass
+    def test_tambah_warga_no_hp_tidak_valid(self, controller, repo, mock_db):
+        result = controller.tambah_warga("Andi", "Jl. Merdeka 1", "08123abc789")
 
-    # TODO
-    def test_lihat_detail_warga_tidak_ditemukan(self):
-        """Menguji pengambilan detail warga dengan ID yang tidak ada harus mengembalikan None."""
-        pass
+        assert result is False
+        assert repo.get_warga_list() == []
+        mock_db.simpan_data.assert_not_called()
 
-    # TODO
-    def test_ubah_warga_valid(self):
-        """Menguji perubahan data warga dengan data yang valid harus berhasil."""
-        pass
+    def test_lihat_daftar_warga(self, controller, repo, warga):
+        repo.tambah_warga(warga)
 
-    # TODO
-    def test_hapus_warga_tanpa_reservasi_aktif(self):
-        """Menguji penghapusan warga yang tidak memiliki reservasi BELUM_DIBAYAR harus berhasil."""
-        pass
+        hasil = controller.lihat_daftar_warga()
 
-    # TODO
-    def test_hapus_warga_dengan_reservasi_aktif(self):
-        """Menguji penghapusan warga yang masih memiliki reservasi BELUM_DIBAYAR harus gagal."""
-        pass
+        assert hasil == [warga]
 
-    # TODO
-    def test_cek_reservasi_aktif_warga_ada(self):
-        """Menguji cek reservasi aktif warga yang memiliki reservasi BELUM_DIBAYAR."""
-        pass
+    def test_lihat_detail_warga_ditemukan(self, controller, repo, warga):
+        repo.tambah_warga(warga)
 
-    # TODO
-    def test_cek_reservasi_aktif_warga_tidak_ada(self):
-        """Menguji cek reservasi aktif warga yang tidak memiliki reservasi BELUM_DIBAYAR."""
-        pass
+        hasil = controller.lihat_detail_warga(warga.id_warga)
+
+        assert hasil is warga
+
+    def test_lihat_detail_warga_tidak_ditemukan(self, controller):
+        assert controller.lihat_detail_warga("id-tidak-ada") is None
+
+    def test_ubah_warga_valid(self, controller, repo, warga):
+        repo.tambah_warga(warga)
+
+        result = controller.ubah_warga(
+            warga.id_warga,
+            "Andi Diperbarui",
+            "Jl. Baru 2",
+            "08199999999",
+        )
+
+        warga_terbaru = repo.cari_warga(warga.id_warga)
+        assert result is True
+        assert warga_terbaru is not None
+        assert warga_terbaru.nama == "Andi Diperbarui"
+        assert warga_terbaru.alamat == "Jl. Baru 2"
+        assert warga_terbaru.no_hp == "08199999999"
+
+    def test_ubah_warga_no_hp_tidak_valid(self, controller, repo, warga):
+        repo.tambah_warga(warga)
+
+        result = controller.ubah_warga(warga.id_warga, "Andi", "Jl. Baru", "08123abc")
+
+        warga_tetap = repo.cari_warga(warga.id_warga)
+        assert result is False
+        assert warga_tetap is warga
+        assert warga_tetap.nama == "Andi Pratama"
+
+    def test_hapus_warga_tanpa_reservasi_aktif(self, controller, repo, warga):
+        repo.tambah_warga(warga)
+
+        result = controller.hapus_warga(warga.id_warga)
+
+        assert result is True
+        assert repo.cari_warga(warga.id_warga) is None
+
+    def test_hapus_warga_dengan_reservasi_aktif(self, controller, repo, warga):
+        repo.tambah_warga(warga)
+        repo.tambah_reservasi(buat_reservasi(warga.id_warga, StatusReservasi.BELUM_DIBAYAR))
+
+        result = controller.hapus_warga(warga.id_warga)
+
+        assert result is False
+        assert repo.cari_warga(warga.id_warga) is warga
+
+    def test_hapus_warga_dengan_reservasi_lunas(self, controller, repo, warga):
+        repo.tambah_warga(warga)
+        repo.tambah_reservasi(buat_reservasi(warga.id_warga, StatusReservasi.LUNAS))
+
+        result = controller.hapus_warga(warga.id_warga)
+
+        assert result is True
+        assert repo.cari_warga(warga.id_warga) is None
+
+    def test_cek_reservasi_aktif_warga_ada(self, controller, repo, warga):
+        repo.tambah_warga(warga)
+        repo.tambah_reservasi(buat_reservasi(warga.id_warga, StatusReservasi.BELUM_DIBAYAR))
+
+        assert controller.cek_reservasi_aktif_warga(warga.id_warga) is True
+
+    def test_cek_reservasi_aktif_warga_tidak_ada(self, controller, repo, warga):
+        repo.tambah_warga(warga)
+
+        assert controller.cek_reservasi_aktif_warga(warga.id_warga) is False
