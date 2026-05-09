@@ -189,7 +189,7 @@ class ReservasiController:
         berhasil_ubah = reservasi_target.ubah_data(id_warga, id_fasilitas, tanggal, jam_mulai, jam_selesai)
 
         if berhasil_ubah:
-            reservasi_target._total_biaya = self.hitung_total_biaya(id_fasilitas, jam_mulai, jam_selesai)
+            reservasi_target.hitung_total_biaya(id_fasilitas, jam_mulai, jam_selesai)
             self._data_repository.update_reservasi(reservasi_target)
             return True
         
