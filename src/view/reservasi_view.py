@@ -81,7 +81,7 @@ class ReservasiView(QWidget):
             total_biaya: Total biaya dalam Decimal yang akan ditampilkan (format Rupiah).
         """
         self.tampilkan_pesan_berhasil(f"Estimasi Total Biaya Reservasi:\nRp {total_biaya:,.2f}")
-        pass
+        
 
     # TODO
     def tampilkan_detail_reservasi(self, id_reservasi: str) -> None:
@@ -91,8 +91,54 @@ class ReservasiView(QWidget):
         Parameter:
             id_reservasi: ID reservasi yang ingin ditampilkan detailnya.
         """
-        QMessageBox.information(self, "Detail Reservasi", f"Menampilkan detail data untuk ID:\n{id_reservasi}")
-        pass
+        semua_res = self._reservasi_controller.lihat_daftar_reservasi()
+        reservasi = next((r for r in semua_res if r.id_reservasi == id_reservasi), None)
+
+        if not reservasi:
+            self.tampilkan_pesan_error("Data reservasi tidak ditemukan.")
+            return
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Detail Reservasi - {id_reservasi}")
+        layout = QVBoxLayout(dialog)
+
+        info_teks = (
+            f"ID Reservasi: {reservasi.id_reservasi}\n"
+            f"ID Warga: {reservasi.id_warga}\n"
+            f"ID Fasilitas: {reservasi.id_fasilitas}\n"
+            f"Tanggal: {reservasi.tanggal_dibuat.strftime('%d-%m-%Y')}\n"
+            f"Waktu: {reservasi.jam_mulai.strftime('%H:%M')} - {reservasi.jam_selesai.strftime('%H:%M')}\n"
+            f"Total Biaya: Rp {reservasi.total_biaya:,.2f}\n"
+            f"Status: {reservasi.status.name}"  # Ini bertindak sebagai 'badge' status
+        )
+        layout.addWidget(QLabel(info_teks))
+
+        from src.entity.enums import StatusReservasi
+
+        if reservasi.status == StatusReservasi.BELUM_DIBAYAR:
+            btn_lunas = QPushButton("Tandai Lunas")
+            btn_ubah = QPushButton("Ubah Waktu")
+
+            def proses_lunas():
+                # Catatan: Ini memanggil fungsi Entity untuk ubah status, idealnya dihubungkan 
+                # ke method di Controller yang akan menyimpan ke DB nantinya.
+                berhasil = reservasi.pembaruan_status_pembayaran()
+                if berhasil:
+                    self._reservasi_controller._data_repository.update_reservasi(reservasi)
+                    self.tampilkan_pesan_berhasil("Reservasi berhasil ditandai Lunas!")
+                dialog.accept()
+
+            def proses_ubah_waktu():
+                dialog.accept() # Tutup dialog detail
+                self.tampilkan_form_ubah_waktu(id_reservasi) # Buka form ubah waktu
+
+            btn_lunas.clicked.connect(proses_lunas)
+            btn_ubah.clicked.connect(proses_ubah_waktu)
+
+            layout.addWidget(btn_lunas)
+            layout.addWidget(btn_ubah)
+        
+        dialog.exec()
 
     # TODO
     def tampilkan_form_ubah_waktu(self, id_reservasi: str) -> None:
@@ -144,7 +190,7 @@ class ReservasiView(QWidget):
 
         btn_ubah.clicked.connect(proses_ubah)
         dialog.exec()
-        pass
+     
 
     # TODO
     def tampilkan_pesan_berhasil(self, pesan: str) -> None:
