@@ -1,12 +1,9 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, List, Optional
-from uuid import uuid4
-
-from src.entity.enums import StatusReservasi
-from src.entity.warga import Warga
 
 if TYPE_CHECKING:
     from src.data.data_repository import DataRepository
+    from src.entity.warga import Warga
 
 
 class WargaController:
@@ -15,6 +12,7 @@ class WargaController:
     def __init__(self, data_repository: DataRepository) -> None:
         self._data_repository: DataRepository = data_repository
 
+    # TODO
     def tambah_warga(self, nama: str, alamat: str, no_hp: str) -> bool:
         """Menambahkan data warga baru ke sistem setelah validasi data.
 
@@ -26,12 +24,9 @@ class WargaController:
         Returns:
             True jika warga berhasil ditambahkan, False jika validasi gagal.
         """
-        if not self.validasi_data_warga(nama, alamat, no_hp):
-            return False
+        pass
 
-        warga = Warga(str(uuid4()), nama, alamat, no_hp)
-        return self._data_repository.tambah_warga(warga)
-
+    # TODO
     def validasi_data_warga(self, nama: str, alamat: str, no_hp: str) -> bool:
         """Memvalidasi kelengkapan dan format data warga sebelum disimpan.
 
@@ -43,16 +38,18 @@ class WargaController:
         Returns:
             True jika semua data valid, False jika ada data yang tidak memenuhi syarat.
         """
-        return Warga("", nama, alamat, no_hp).validate_data()
+        pass
 
+    # TODO
     def lihat_daftar_warga(self) -> List[Warga]:
         """Mengambil seluruh data warga dari DataRepository.
 
         Returns:
             List berisi semua objek Warga yang tersimpan.
         """
-        return self._data_repository.get_warga_list()
+        pass
 
+    # TODO
     def lihat_detail_warga(self, id_warga: str) -> Optional[Warga]:
         """Mengambil detail data warga berdasarkan ID.
 
@@ -62,8 +59,9 @@ class WargaController:
         Returns:
             Objek Warga yang sesuai, atau None jika tidak ditemukan.
         """
-        return self._data_repository.cari_warga(id_warga)
+        pass
 
+    # TODO
     def ubah_warga(self, id_warga: str, nama: str, alamat: str, no_hp: str) -> bool:
         """Memperbarui data warga yang sudah tersimpan berdasarkan ID.
 
@@ -76,13 +74,9 @@ class WargaController:
         Returns:
             True jika pembaruan berhasil, False jika data tidak valid atau warga tidak ditemukan.
         """
-        warga = self._data_repository.cari_warga(id_warga)
-        if warga is None or not self.validasi_data_warga(nama, alamat, no_hp):
-            return False
+        pass
 
-        warga_baru = Warga(id_warga, nama, alamat, no_hp)
-        return self._data_repository.ubah_warga(warga_baru)
-
+    # TODO
     def hapus_warga(self, id_warga: str) -> bool:
         """Menghapus data warga dari sistem jika tidak memiliki reservasi dengan status BELUM_DIBAYAR.
 
@@ -92,12 +86,9 @@ class WargaController:
         Returns:
             True jika penghapusan berhasil, False jika warga masih memiliki reservasi aktif.
         """
-        warga = self._data_repository.cari_warga(id_warga)
-        if warga is None or self.cek_reservasi_aktif_warga(id_warga):
-            return False
+        pass
 
-        return self._data_repository.hapus_warga(warga)
-
+    # TODO
     def cek_reservasi_aktif_warga(self, id_warga: str) -> bool:
         """Mengecek apakah warga masih memiliki reservasi dengan status BELUM_DIBAYAR.
 
@@ -107,8 +98,4 @@ class WargaController:
         Returns:
             True jika warga masih punya reservasi aktif, False jika tidak ada.
         """
-        return any(
-            reservasi.id_warga == id_warga
-            and reservasi.status == StatusReservasi.BELUM_DIBAYAR
-            for reservasi in self._data_repository.get_list_reservasi()
-        )
+        pass
