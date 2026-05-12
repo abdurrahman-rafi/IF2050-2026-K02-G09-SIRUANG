@@ -70,28 +70,28 @@ class TestFasilitasController:
 
     def test_lihat_daftar_fasilitas(self, controller, mock_repo, fasilitas_contoh):
         """Pengambilan daftar fasilitas harus mengembalikan semua fasilitas dari repository."""
-        mock_repo.get_all_fasilitas.return_value = [fasilitas_contoh]
+        mock_repo.get_fasilitas_list.return_value = [fasilitas_contoh]
 
         hasil = controller.lihat_daftar_fasilitas()
 
         assert len(hasil) == 1
         assert hasil[0].nama == "Balai Warga"
-        mock_repo.get_all_fasilitas.assert_called_once()
+        mock_repo.get_fasilitas_list.assert_called_once()
 
     def test_lihat_detail_fasilitas_ditemukan(self, controller, mock_repo, fasilitas_contoh):
         """Pengambilan detail fasilitas dengan ID yang ada harus mengembalikan objek Fasilitas."""
-        mock_repo.get_fasilitas_by_id.return_value = fasilitas_contoh
+        mock_repo.cari_fasilitas.return_value = fasilitas_contoh
 
         hasil = controller.lihat_detail_fasilitas("f-001")
 
         assert hasil is not None
         assert hasil.id_fasilitas == "f-001"
-        mock_repo.get_fasilitas_by_id.assert_called_once_with("f-001")
+        mock_repo.cari_fasilitas.assert_called_once_with("f-001")
 
     def test_ubah_fasilitas_valid(self, controller, mock_repo, fasilitas_contoh):
         """Perubahan data fasilitas dengan data valid dan ID yang ada harus berhasil."""
-        mock_repo.get_fasilitas_by_id.return_value = fasilitas_contoh
-        mock_repo.update_fasilitas.return_value = True
+        mock_repo.cari_fasilitas.return_value = fasilitas_contoh
+        mock_repo.ubah_fasilitas.return_value = True
 
         hasil = controller.ubah_fasilitas(
             "f-001",
@@ -103,22 +103,23 @@ class TestFasilitasController:
 
         assert hasil is True
         assert fasilitas_contoh.nama == "Balai Warga Renovasi"
-        mock_repo.update_fasilitas.assert_called_once_with(fasilitas_contoh)
+        mock_repo.ubah_fasilitas.assert_called_once_with(fasilitas_contoh)
 
-    def test_hapus_fasilitas_tanpa_reservasi_aktif(self, controller, mock_repo):
+    def test_hapus_fasilitas_tanpa_reservasi_aktif(self, controller, mock_repo, fasilitas_contoh):
         """Penghapusan fasilitas tanpa reservasi BELUM_DIBAYAR harus berhasil."""
-        mock_repo.get_all_reservasi.return_value = []
+        mock_repo.get_list_reservasi.return_value = []
+        mock_repo.cari_fasilitas.return_value = fasilitas_contoh
         mock_repo.hapus_fasilitas.return_value = True
 
         hasil = controller.hapus_fasilitas("f-001")
 
         assert hasil is True
-        mock_repo.hapus_fasilitas.assert_called_once_with("f-001")
+        mock_repo.hapus_fasilitas.assert_called_once_with(fasilitas_contoh)
 
     def test_hapus_fasilitas_dengan_reservasi_aktif(self, controller, mock_repo):
         """Penghapusan fasilitas yang masih punya reservasi BELUM_DIBAYAR harus gagal."""
         reservasi = _buat_reservasi_mock("f-001", StatusReservasi.BELUM_DIBAYAR)
-        mock_repo.get_all_reservasi.return_value = [reservasi]
+        mock_repo.get_list_reservasi.return_value = [reservasi]
 
         hasil = controller.hapus_fasilitas("f-001")
 
@@ -128,7 +129,7 @@ class TestFasilitasController:
     def test_cek_reservasi_aktif_fasilitas_ada(self, controller, mock_repo):
         """Cek reservasi aktif harus return True jika ada reservasi BELUM_DIBAYAR."""
         reservasi = _buat_reservasi_mock("f-001", StatusReservasi.BELUM_DIBAYAR)
-        mock_repo.get_all_reservasi.return_value = [reservasi]
+        mock_repo.get_list_reservasi.return_value = [reservasi]
 
         hasil = controller.cek_reservasi_aktif_fasilitas("f-001")
 

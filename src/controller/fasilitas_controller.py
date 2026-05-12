@@ -55,11 +55,11 @@ class FasilitasController:
 
     def lihat_daftar_fasilitas(self) -> List[Fasilitas]:
         """Mengambil seluruh data fasilitas dari DataRepository."""
-        return self._data_repository.get_all_fasilitas()
+        return self._data_repository.get_fasilitas_list()
 
     def lihat_detail_fasilitas(self, id_fasilitas: str) -> Optional[Fasilitas]:
         """Mengambil detail data fasilitas berdasarkan ID."""
-        return self._data_repository.get_fasilitas_by_id(id_fasilitas)
+        return self._data_repository.cari_fasilitas(id_fasilitas)
 
     def ubah_fasilitas(
         self,
@@ -72,20 +72,16 @@ class FasilitasController:
         """Memperbarui data fasilitas yang sudah tersimpan berdasarkan ID."""
         if not self.validasi_data_fasilitas(nama, harga_per_jam, deskripsi, status):
             return False
-        fasilitas = self._data_repository.get_fasilitas_by_id(id_fasilitas)
+        fasilitas = self._data_repository.cari_fasilitas(id_fasilitas)
         if fasilitas is None:
             return False
         fasilitas.ubah_data(nama, Decimal(str(harga_per_jam)), deskripsi, status)
-        return self._data_repository.update_fasilitas(fasilitas)
+        return self._data_repository.ubah_fasilitas(fasilitas)
 
     def cek_reservasi_aktif_fasilitas(self, id_fasilitas: str) -> bool:
         """Memeriksa apakah fasilitas masih terikat reservasi dengan status BELUM_DIBAYAR."""
-        reservasi_list = self._data_repository.get_all_reservasi()
-        for r in reservasi_list:
-            if (
-                r.id_fasilitas == id_fasilitas
-                and r.status == StatusReservasi.BELUM_DIBAYAR
-            ):
+        for r in self._data_repository.get_list_reservasi():
+            if r.id_fasilitas == id_fasilitas and r.status == StatusReservasi.BELUM_DIBAYAR:
                 return True
         return False
 
@@ -93,4 +89,7 @@ class FasilitasController:
         """Menghapus data fasilitas dari sistem jika tidak ada reservasi BELUM_DIBAYAR."""
         if self.cek_reservasi_aktif_fasilitas(id_fasilitas):
             return False
-        return self._data_repository.hapus_fasilitas(id_fasilitas)
+        fasilitas = self._data_repository.cari_fasilitas(id_fasilitas)
+        if fasilitas is None:
+            return False
+        return self._data_repository.hapus_fasilitas(fasilitas)
