@@ -1,8 +1,6 @@
 from __future__ import annotations
 from decimal import Decimal
-
 from src.entity.enums import StatusFasilitas
-
 
 class Fasilitas:
     """Entity model yang merepresentasikan data fasilitas komunitas yang dapat direservasi."""
@@ -21,7 +19,6 @@ class Fasilitas:
         self._deskripsi: str = deskripsi
         self._status: StatusFasilitas = status
 
-    # TODO
     def ubah_data(
         self,
         nama: str,
@@ -29,27 +26,16 @@ class Fasilitas:
         deskripsi: str,
         status: StatusFasilitas,
     ) -> bool:
-        """Memperbarui atribut fasilitas berdasarkan input baru dari controller.
+        """Memperbarui atribut fasilitas berdasarkan input baru dari controller."""
+        self._nama = nama
+        self._harga_per_jam = harga_per_jam
+        self._deskripsi = deskripsi
+        self._status = status
+        return True
 
-        Parameter:
-            nama: Nama baru fasilitas.
-            harga_per_jam: Harga sewa per jam yang baru (Decimal).
-            deskripsi: Deskripsi baru fasilitas.
-            status: Status baru fasilitas (READY_TO_BOOK atau MAINTENANCE).
-
-        Returns:
-            True jika perubahan berhasil diterapkan.
-        """
-        pass
-
-    # TODO
     def get_detail_fasilitas(self) -> Fasilitas:
-        """Mengembalikan objek fasilitas ini beserta seluruh atributnya.
-
-        Returns:
-            Objek Fasilitas itu sendiri.
-        """
-        pass
+        """Mengembalikan objek fasilitas ini beserta seluruh atributnya."""
+        return self
 
     @property
     def id_fasilitas(self) -> str:
