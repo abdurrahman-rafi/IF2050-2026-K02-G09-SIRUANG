@@ -387,6 +387,34 @@ class DataRepository:
             ]
         return berhasil
 
+    def ubah_reservasi(self, r: Reservasi) -> bool:
+        """Memperbarui data jadwal dan biaya reservasi di list in-memory dan database.
+
+        Parameter:
+            r: Objek Reservasi dengan data yang sudah diperbarui.
+
+        Returns:
+            True jika pembaruan berhasil, False jika reservasi tidak ditemukan.
+        """
+        indeks = next(
+            (i for i, x in enumerate(self._list_reservasi) if x.id_reservasi == r.id_reservasi),
+            None,
+        )
+        if indeks is None:
+            return False
+        query = (
+            "UPDATE reservasi SET id_warga=%s, id_fasilitas=%s, tanggal_dibuat=%s, "
+            "jam_mulai=%s, jam_selesai=%s, total_biaya=%s WHERE id_reservasi=%s"
+        )
+        berhasil = self._database_manager.simpan_data(
+            query,
+            (r.id_warga, r.id_fasilitas, r.tanggal_dibuat, r.jam_mulai, r.jam_selesai,
+             r.total_biaya, r.id_reservasi),
+        )
+        if berhasil:
+            self._list_reservasi[indeks] = r
+        return berhasil
+
     # Notifikasi
 
     def tambah_notifikasi(self, n: Notifikasi) -> bool:
