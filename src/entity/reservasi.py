@@ -49,7 +49,13 @@ class Reservasi:
         Returns:
             True jika reservasi berhasil dibuat.
         """
-        pass
+        self._id_warga = id_warga
+        self._id_fasilitas = id_fasilitas
+        self._tanggal_dibuat = tanggal
+        self._jam_mulai = jam_mulai
+        self._jam_selesai = jam_selesai
+        self.status = StatusReservasi.BELUM_DIBAYAR
+        return True
 
     # TODO
     def hitung_total_biaya(self, id_fasilitas: str, jam_mulai: time, jam_selesai: time) -> Decimal:
@@ -63,7 +69,21 @@ class Reservasi:
         Returns:
             Total biaya dalam Decimal (Rupiah).
         """
-        pass
+        detik_mulai = (jam_mulai.hour * 3600) + (jam_mulai.minute * 60) + jam_mulai.second
+        detik_selesai = (jam_selesai.hour * 3600) + (jam_selesai.minute * 60) + jam_selesai.second
+        
+        durasi_detik = detik_selesai - detik_mulai
+
+        if durasi_detik < 0:
+            durasi_detik += 86400
+
+        durasi_jam = Decimal(str(durasi_detik)) / Decimal('3600')
+
+        harga_per_jam = Decimal('50000')
+
+        self._total_biaya = durasi_jam * harga_per_jam
+        return self._total_biaya
+        
 
     # TODO
     def pembaruan_status_pembayaran(self) -> bool:
@@ -72,7 +92,12 @@ class Reservasi:
         Returns:
             True jika status berhasil diperbarui, False jika sudah LUNAS sebelumnya.
         """
-        pass
+        if self.status == StatusReservasi.LUNAS:
+            return False
+        
+        self.status = StatusReservasi.LUNAS
+        return True
+        
 
     # TODO
     def lihat_detail_reservasi(self, id_reservasi: str) -> Reservasi:
@@ -84,7 +109,11 @@ class Reservasi:
         Returns:
             Objek Reservasi itu sendiri.
         """
-        pass
+        if self._id_reservasi == id_reservasi:
+            return self
+        
+        raise ValueError(f"ID Reservasi {id_reservasi} tidak cocok.")
+        
 
     # TODO
     def ubah_data(
@@ -107,7 +136,15 @@ class Reservasi:
         Returns:
             True jika perubahan berhasil, False jika status sudah LUNAS atau data tidak valid.
         """
-        pass
+        if self.status == StatusReservasi.LUNAS:
+            return False
+        
+        self._id_warga = id_warga
+        self._id_fasilitas = id_fasilitas
+        self._tanggal_dibuat = tanggal
+        self._jam_mulai = jam_mulai
+        self._jam_selesai = jam_selesai
+        return True
 
     @property
     def id_reservasi(self) -> str:
