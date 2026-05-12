@@ -88,7 +88,7 @@ class ReservasiController:
         Returns:
             True jika slot waktu tersedia (tidak bentrok), False jika ada overlap.
         """
-        semua_reservasi = self._data_repository.get_semua_reservasi()
+        semua_reservasi = self._data_repository.get_list_reservasi()
 
         for res in semua_reservasi:
             if res.id_fasilitas == id_fasilitas and res.tanggal_dibuat == tanggal:
@@ -113,15 +113,16 @@ class ReservasiController:
         Returns:
             Total biaya dalam Decimal (Rupiah).
         """
-        harga_per_jam = Decimal('50000')
+        fasilitas = self._data_repository.cari_fasilitas(id_fasilitas)
+        if fasilitas is None:
+            return Decimal("0")
+        harga_per_jam = fasilitas.harga_per_jam
 
         detik_mulai = (jam_mulai.hour * 3600) + (jam_mulai.minute * 60) + jam_mulai.second
         detik_selesai = (jam_selesai.hour * 3600) + (jam_selesai.minute * 60) + jam_selesai.second
-
         durasi_detik = detik_selesai - detik_mulai
         if durasi_detik < 0:
             durasi_detik += 86400
-
         durasi_jam = Decimal(str(durasi_detik)) / Decimal('3600')
         return durasi_jam * harga_per_jam
         
@@ -133,7 +134,7 @@ class ReservasiController:
         Returns:
             List berisi semua objek Reservasi yang tersimpan.
         """
-        return self._data_repository.get_semua_reservasi()
+        return self._data_repository.get_list_reservasi()
         
 
     # TODO
@@ -147,7 +148,7 @@ class ReservasiController:
         Returns:
             Objek Notifikasi yang berhasil dibuat, atau None jika gagal.
         """
-        return self._notifikasi_controller.buat_notifikasi(id_reservasi, pesan)
+        return self._notifikasi_controller.create_notifikasi(id_reservasi, pesan)
         
     # TODO
     def ubah_reservasi(
@@ -172,7 +173,7 @@ class ReservasiController:
         Returns:
             True jika perubahan berhasil, False jika status LUNAS atau jadwal bentrok.
         """
-        semua_reservasi = self._data_repository.get_semua_reservasi()
+        semua_reservasi = self._data_repository.get_list_reservasi()
         reservasi_target = next((r for r in semua_reservasi if r.id_reservasi == id_reservasi), None)
         
         if not reservasi_target:
@@ -189,8 +190,10 @@ class ReservasiController:
         berhasil_ubah = reservasi_target.ubah_data(id_warga, id_fasilitas, tanggal, jam_mulai, jam_selesai)
 
         if berhasil_ubah:
-            reservasi_target.hitung_total_biaya(id_fasilitas, jam_mulai, jam_selesai)
-            self._data_repository.update_reservasi(reservasi_target)
+            fasilitas = self._data_repository.cari_fasilitas(id_fasilitas)
+            harga_per_jam = fasilitas.harga_per_jam if fasilitas else Decimal("0")
+            reservasi_target.hitung_total_biaya(harga_per_jam, jam_mulai, jam_selesai)
+            self._data_repository.ubah_reservasi(reservasi_target)
             return True
         
         return False
