@@ -76,6 +76,14 @@ class NotificationService:
         self._sudah_dikirim.clear()
         logger.debug("NotificationService sent cache cleared.")
 
+    def perbarui_interval(self, interval_ms: int) -> None:
+        """Ubah interval scheduler; restart timer jika sedang berjalan."""
+        was_active = self._timer.isActive()
+        self._timer.stop()
+        self._timer.setInterval(max(60_000, interval_ms))
+        if was_active:
+            self._timer.start()
+
     # ------------------------------------------------------------------
     # Internal timer callback
     # ------------------------------------------------------------------
