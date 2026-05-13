@@ -40,6 +40,7 @@ class DataRepository:
                     Decimal(str(row["harga_per_jam"])),
                     row["deskripsi"] or "",
                     StatusFasilitas(row["status"]),
+                    row.get("gambar", "") or "",
                 )
             )
 
@@ -161,12 +162,12 @@ class DataRepository:
             True jika penyimpanan berhasil, False jika gagal.
         """
         query = (
-            "INSERT INTO fasilitas (id_fasilitas, nama, harga_per_jam, deskripsi, status) "
-            "VALUES (%s, %s, %s, %s, %s)"
+            "INSERT INTO fasilitas (id_fasilitas, nama, harga_per_jam, deskripsi, status, gambar) "
+            "VALUES (%s, %s, %s, %s, %s, %s)"
         )
         berhasil = self._database_manager.simpan_data(
             query,
-            (f.id_fasilitas, f.nama, f.harga_per_jam, f.deskripsi, f.status.value),
+            (f.id_fasilitas, f.nama, f.harga_per_jam, f.deskripsi, f.status.value, f.gambar),
         )
         if berhasil:
             self._list_fasilitas.append(f)
@@ -210,12 +211,12 @@ class DataRepository:
         if indeks is None:
             return False
         query = (
-            "UPDATE fasilitas SET nama=%s, harga_per_jam=%s, deskripsi=%s, status=%s "
+            "UPDATE fasilitas SET nama=%s, harga_per_jam=%s, deskripsi=%s, status=%s, gambar=%s "
             "WHERE id_fasilitas=%s"
         )
         berhasil = self._database_manager.simpan_data(
             query,
-            (f.nama, f.harga_per_jam, f.deskripsi, f.status.value, f.id_fasilitas),
+            (f.nama, f.harga_per_jam, f.deskripsi, f.status.value, f.gambar, f.id_fasilitas),
         )
         if berhasil:
             self._list_fasilitas[indeks] = f
@@ -387,6 +388,34 @@ class DataRepository:
             ]
         return berhasil
 
+    def ubah_reservasi(self, r: Reservasi) -> bool:
+        """Memperbarui data jadwal dan biaya reservasi di list in-memory dan database.
+
+        Parameter:
+            r: Objek Reservasi dengan data yang sudah diperbarui.
+
+        Returns:
+            True jika pembaruan berhasil, False jika reservasi tidak ditemukan.
+        """
+        indeks = next(
+            (i for i, x in enumerate(self._list_reservasi) if x.id_reservasi == r.id_reservasi),
+            None,
+        )
+        if indeks is None:
+            return False
+        query = (
+            "UPDATE reservasi SET id_warga=%s, id_fasilitas=%s, tanggal_dibuat=%s, "
+            "jam_mulai=%s, jam_selesai=%s, total_biaya=%s WHERE id_reservasi=%s"
+        )
+        berhasil = self._database_manager.simpan_data(
+            query,
+            (r.id_warga, r.id_fasilitas, r.tanggal_dibuat, r.jam_mulai, r.jam_selesai,
+             r.total_biaya, r.id_reservasi),
+        )
+        if berhasil:
+            self._list_reservasi[indeks] = r
+        return berhasil
+
     # Notifikasi
 
     def tambah_notifikasi(self, n: Notifikasi) -> bool:
@@ -432,3 +461,21 @@ class DataRepository:
             List berisi semua objek Notifikasi.
         """
         return list(self._list_notifikasi)
+
+    def update_sudah_dibaca(self, id_notifikasi: str) -> bool:
+        """Menandai notifikasi sebagai sudah dibaca di in-memory dan database.
+
+        Parameter:
+            id_notifikasi: ID notifikasi yang akan ditandai sudah dibaca.
+
+        Returns:
+            True jika berhasil, False jika notifikasi tidak ditemukan atau gagal update.
+        """
+        n = self.cari_notifikasi(id_notifikasi)
+        if n is None:
+            return False
+        query = "UPDATE notifikasi SET sudah_dibaca=%s WHERE id_notifikasi=%s"
+        berhasil = self._database_manager.simpan_data(query, (True, id_notifikasi))
+        if berhasil:
+            n.tandai_sudah_dibaca()
+        return berhasil

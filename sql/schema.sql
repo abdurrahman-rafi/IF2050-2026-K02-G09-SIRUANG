@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS fasilitas (
     nama          VARCHAR(100)   NOT NULL,
     harga_per_jam DECIMAL(12, 2) NOT NULL,
     deskripsi     TEXT,
+    gambar        TEXT           DEFAULT '',
     status        VARCHAR(20)    NOT NULL DEFAULT 'READY_TO_BOOK',
     -- status: 'READY_TO_BOOK' | 'MAINTENANCE'
     CONSTRAINT chk_status_fasilitas CHECK (status IN ('READY_TO_BOOK', 'MAINTENANCE'))

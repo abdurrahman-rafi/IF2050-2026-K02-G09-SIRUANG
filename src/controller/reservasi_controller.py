@@ -1,7 +1,11 @@
 from __future__ import annotations
+import uuid
 from datetime import date, time
 from decimal import Decimal
 from typing import TYPE_CHECKING, List, Optional
+
+from src.entity.reservasi import Reservasi
+from src.entity.enums import StatusReservasi
 
 if TYPE_CHECKING:
     from src.controller.notifikasi_controller import NotifikasiController
@@ -21,6 +25,10 @@ class ReservasiController:
         self._data_repository: DataRepository = data_repository
         self._notifikasi_controller: NotifikasiController = notifikasi_controller
 
+    def get_jam_notifikasi(self) -> int:
+        """Kembalikan nilai jam notifikasi saat ini dari NotifikasiController."""
+        return self._notifikasi_controller.get_jam_notifikasi()
+
     # TODO
     def tambah_reservasi(
         self,
@@ -29,6 +37,7 @@ class ReservasiController:
         tanggal: date,
         jam_mulai: time,
         jam_selesai: time,
+        jam_notifikasi_sebelum: int = 2,
     ) -> bool:
         """Mencatat reservasi baru setelah memvalidasi jadwal, warga, dan fasilitas.
 
@@ -42,7 +51,28 @@ class ReservasiController:
         Returns:
             True jika reservasi berhasil disimpan, False jika validasi gagal.
         """
-        pass
+        if not self.validasi_jadwal(id_fasilitas, tanggal, jam_mulai, jam_selesai):
+            return False
+        
+        id_reservasi_baru = f"RES-{uuid.uuid4().hex[:6].upper()}"
+
+        total_biaya = self.hitung_total_biaya(id_fasilitas, jam_mulai, jam_selesai)
+
+        reservasi_baru = Reservasi(
+            id_reservasi=id_reservasi_baru,
+            id_warga=id_warga,
+            id_fasilitas=id_fasilitas,
+            tanggal_dibuat=tanggal,
+            jam_mulai=jam_mulai,
+            jam_selesai=jam_selesai,
+            total_biaya=total_biaya,
+            status=StatusReservasi.BELUM_DIBAYAR
+        )
+
+        self._data_repository.tambah_reservasi(reservasi_baru)
+        self._notifikasi_controller.simpan_jam_sebelum(jam_notifikasi_sebelum)
+        return True
+        
 
     # TODO
     def validasi_jadwal(
@@ -64,7 +94,15 @@ class ReservasiController:
         Returns:
             True jika slot waktu tersedia (tidak bentrok), False jika ada overlap.
         """
-        pass
+        semua_reservasi = self._data_repository.get_list_reservasi()
+
+        for res in semua_reservasi:
+            if res.id_fasilitas == id_fasilitas and res.tanggal_dibuat == tanggal:
+                if res.jam_mulai < jam_selesai and res.jam_selesai > jam_mulai:
+                    return False
+                
+        return True        
+        
 
     # TODO
     def hitung_total_biaya(
@@ -81,7 +119,19 @@ class ReservasiController:
         Returns:
             Total biaya dalam Decimal (Rupiah).
         """
-        pass
+        fasilitas = self._data_repository.cari_fasilitas(id_fasilitas)
+        if fasilitas is None:
+            return Decimal("0")
+        harga_per_jam = fasilitas.harga_per_jam
+
+        detik_mulai = (jam_mulai.hour * 3600) + (jam_mulai.minute * 60) + jam_mulai.second
+        detik_selesai = (jam_selesai.hour * 3600) + (jam_selesai.minute * 60) + jam_selesai.second
+        durasi_detik = detik_selesai - detik_mulai
+        if durasi_detik < 0:
+            durasi_detik += 86400
+        durasi_jam = Decimal(str(durasi_detik)) / Decimal('3600')
+        return durasi_jam * harga_per_jam
+        
 
     # TODO
     def lihat_daftar_reservasi(self) -> List[Reservasi]:
@@ -90,7 +140,8 @@ class ReservasiController:
         Returns:
             List berisi semua objek Reservasi yang tersimpan.
         """
-        pass
+        return self._data_repository.get_list_reservasi()
+        
 
     # TODO
     def buat_notifikasi(self, id_reservasi: str, pesan: str) -> Optional[Notifikasi]:
@@ -103,8 +154,8 @@ class ReservasiController:
         Returns:
             Objek Notifikasi yang berhasil dibuat, atau None jika gagal.
         """
-        pass
-
+        return self._notifikasi_controller.create_notifikasi(id_reservasi, pesan)
+        
     # TODO
     def ubah_reservasi(
         self,
@@ -128,4 +179,28 @@ class ReservasiController:
         Returns:
             True jika perubahan berhasil, False jika status LUNAS atau jadwal bentrok.
         """
-        pass
+        semua_reservasi = self._data_repository.get_list_reservasi()
+        reservasi_target = next((r for r in semua_reservasi if r.id_reservasi == id_reservasi), None)
+        
+        if not reservasi_target:
+            return False
+        
+        if reservasi_target.status == StatusReservasi.LUNAS:
+            return False
+        
+        for res in semua_reservasi:
+            if res.id_fasilitas == id_fasilitas and res.tanggal_dibuat == tanggal and res.id_reservasi != id_reservasi:
+                if res.jam_mulai < jam_selesai and res.jam_selesai > jam_mulai:
+                    return False
+                
+        berhasil_ubah = reservasi_target.ubah_data(id_warga, id_fasilitas, tanggal, jam_mulai, jam_selesai)
+
+        if berhasil_ubah:
+            fasilitas = self._data_repository.cari_fasilitas(id_fasilitas)
+            harga_per_jam = fasilitas.harga_per_jam if fasilitas else Decimal("0")
+            reservasi_target.hitung_total_biaya(harga_per_jam, jam_mulai, jam_selesai)
+            self._data_repository.ubah_reservasi(reservasi_target)
+            return True
+        
+        return False
+        

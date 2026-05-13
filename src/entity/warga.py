@@ -10,7 +10,6 @@ class Warga:
         self._alamat: str = alamat
         self._no_hp: str = no_hp
 
-    # TODO
     def validate_data(self) -> bool:
         """Memvalidasi kelengkapan dan format data warga: nama tidak boleh kosong,
         alamat tidak boleh kosong, no_hp hanya boleh berisi angka dan tidak boleh kosong.
@@ -18,9 +17,12 @@ class Warga:
         Returns:
             True jika semua data valid, False jika ada data yang tidak valid.
         """
-        pass
+        nama = self._nama.strip()
+        alamat = self._alamat.strip()
+        no_hp = self._no_hp.strip()
 
-    # TODO
+        return bool(nama and alamat and no_hp.isdigit() and 10 <= len(no_hp) <= 13)
+
     def ubah_data(self, nama: str, alamat: str, no_hp: str) -> None:
         """Memperbarui atribut nama, alamat, dan no_hp warga dengan nilai baru.
 
@@ -29,7 +31,13 @@ class Warga:
             alamat: Alamat baru warga.
             no_hp: Nomor HP baru warga.
         """
-        pass
+        data_baru = Warga(self._id_warga, nama, alamat, no_hp)
+        if not data_baru.validate_data():
+            return
+
+        self._nama = nama
+        self._alamat = alamat
+        self._no_hp = no_hp
 
     @property
     def id_warga(self) -> str:
