@@ -626,7 +626,8 @@ class LaporanView(QWidget):
             # Tombol Lihat
             aksi_widget = QWidget()
             aksi_layout = QHBoxLayout(aksi_widget)
-            aksi_layout.setContentsMargins(4, 4, 4, 4)
+            aksi_layout.setContentsMargins(2, 2, 2, 2)
+            aksi_layout.setSpacing(4)
             btn_lihat = QPushButton("Lihat")
             btn_lihat.setStyleSheet(
                 "QPushButton { padding: 3px 10px; min-height: 22px; border-radius: 6px;"
