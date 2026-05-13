@@ -84,14 +84,21 @@ class NotifikasiView(QWidget):
         layout.setSpacing(0)
 
         bell_btn = QPushButton()
-        bell_btn.setFlat(True)
         bell_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        bell_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        bell_btn.setFixedSize(36, 36)
         if icon is not None:
             bell_btn.setIcon(icon)
+            bell_btn.setIconSize(bell_btn.size())
+            bell_btn.setStyleSheet(
+                "QPushButton { background: transparent; border: none; }"
+                "QPushButton:hover { background: rgba(255,255,255,0.12); border-radius: 6px; }"
+            )
         else:
-            bell_btn.setText("Notifikasi")
-            bell_btn.setProperty("nav", "true")
+            bell_btn.setText("🔔")
+            bell_btn.setStyleSheet(
+                "QPushButton { font-size: 18px; color: white; background: transparent; border: none; }"
+                "QPushButton:hover { background: rgba(255,255,255,0.12); border-radius: 6px; }"
+            )
 
         badge = QLabel("")
         badge.setStyleSheet(
