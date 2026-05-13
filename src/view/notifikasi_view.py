@@ -1,21 +1,21 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, List, Optional
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon, QFont
+from PyQt6.QtCore import QEasingCurve, QPropertyAnimation, Qt
+from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
+    QFrame,
+    QGraphicsOpacityEffect,
+    QHBoxLayout,
     QLabel,
     QMessageBox,
-    QTableWidget,
-    QTableWidgetItem,
-    QHeaderView,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
-    QPushButton,
-    QHBoxLayout,
-    QSizePolicy,
 )
 
 if TYPE_CHECKING:
@@ -39,8 +39,7 @@ class NotifikasiView(QWidget):
         self._bell_button: Optional[QPushButton] = None
 
     def tampilkan_notifikasi(self, notifikasi: Notifikasi) -> None:
-        """Menampilkan pop-up atau detail pesan notifikasi in-app kepada pengelola
-        mengenai reservasi yang waktu sewanya akan segera berakhir.
+        """Menampilkan pop-up atau detail pesan notifikasi in-app kepada pengelola.
 
         Parameter:
             notifikasi: Objek Notifikasi yang akan ditampilkan.
@@ -74,7 +73,7 @@ class NotifikasiView(QWidget):
         """Buat widget tombol lonceng dengan badge untuk ditempatkan di navbar.
 
         Returns:
-            QWidget yang berisi tombol lonceng dan badge. Caller harus menambahkan widget ini ke layout navbar.
+            QWidget yang berisi tombol lonceng dan badge.
         """
         if self._ikon_widget is not None:
             return self._ikon_widget
@@ -91,7 +90,8 @@ class NotifikasiView(QWidget):
         if icon is not None:
             bell_btn.setIcon(icon)
         else:
-            bell_btn.setFont(QFont("", 12))
+            bell_btn.setText("Notifikasi")
+            bell_btn.setProperty("nav", "true")
 
         badge = QLabel("")
         badge.setStyleSheet(
@@ -134,6 +134,21 @@ class NotifikasiView(QWidget):
         else:
             self._badge_label.setVisible(False)
 
+    def start_badge_pulse(self) -> None:
+        """Mulai animasi denyut (pulse) tak terbatas pada badge notifikasi."""
+        if self._badge_label is None:
+            return
+        eff = QGraphicsOpacityEffect(self._badge_label)
+        self._badge_label.setGraphicsEffect(eff)
+        pulse = QPropertyAnimation(eff, b"opacity", self._badge_label)
+        pulse.setDuration(1000)
+        pulse.setStartValue(1.0)
+        pulse.setKeyValueAt(0.5, 0.5)
+        pulse.setEndValue(1.0)
+        pulse.setLoopCount(-1)
+        pulse.setEasingCurve(QEasingCurve.Type.InOutSine)
+        pulse.start()
+        self._pulse_anim = pulse
 
     def _on_bell_clicked(self) -> None:
         """Handler saat ikon lonceng diklik: ambil daftar notifikasi dan tampilkan dialog."""
@@ -143,8 +158,108 @@ class NotifikasiView(QWidget):
             daftar = []
         self.tampilkan_daftar_notifikasi(daftar)
 
+
+class _NotifCard(QFrame):
+    """Kartu satu notifikasi dengan klik untuk tandai dibaca."""
+
+    def __init__(
+        self,
+        notif: Notifikasi,
+        notifikasi_controller: NotifikasiController,
+        parent: QWidget = None,
+    ) -> None:
+        super().__init__(parent)
+        self._notif = notif
+        self._ctrl = notifikasi_controller
+        self._is_read = notif.sudah_dibaca
+        self._setup_ui()
+        self._apply_style()
+
+    def _setup_ui(self) -> None:
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setSpacing(12)
+
+        self._dot = QLabel("●")
+        self._dot.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        layout.addWidget(self._dot, alignment=Qt.AlignmentFlag.AlignTop)
+
+        center = QVBoxLayout()
+        center.setSpacing(4)
+
+        self._msg_lbl = QLabel(self._notif.pesan_notifikasi)
+        self._msg_lbl.setWordWrap(True)
+        self._msg_lbl.setStyleSheet(
+            "color: #1a1a2e; font-size: 13px; font-weight: 500;"
+            " background: transparent; border: none;"
+        )
+        center.addWidget(self._msg_lbl)
+
+        try:
+            waktu_str = (
+                self._notif.waktu_kirim.strftime("%d/%m/%Y %H:%M")
+                if self._notif.waktu_kirim else ""
+            )
+        except Exception:
+            waktu_str = str(self._notif.waktu_kirim)
+
+        time_lbl = QLabel(waktu_str)
+        time_lbl.setStyleSheet(
+            "color: #94a3b8; font-size: 11px; background: transparent; border: none;"
+        )
+        center.addWidget(time_lbl)
+
+        layout.addLayout(center, stretch=1)
+
+        self._badge_lbl = QLabel()
+        self._badge_lbl.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        layout.addWidget(self._badge_lbl, alignment=Qt.AlignmentFlag.AlignTop)
+
+        self._update_read_state()
+
+    def _apply_style(self) -> None:
+        if self._is_read:
+            self.setStyleSheet(
+                "QFrame { background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; }"
+            )
+        else:
+            self.setStyleSheet(
+                "QFrame { background: #eef4ff; border-radius: 10px; border: 1px solid #4182fa; }"
+            )
+
+    def _update_read_state(self) -> None:
+        if self._is_read:
+            self._dot.setStyleSheet("color: #cbd5e1; font-size: 10px; background: transparent;")
+            self._badge_lbl.setText("Dibaca")
+            self._badge_lbl.setStyleSheet(
+                "color: #64748b; background: #f1f5f9; border-radius: 6px;"
+                " padding: 3px 10px; font-size: 11px; font-weight: 600; border: none;"
+            )
+        else:
+            self._dot.setStyleSheet("color: #4182fa; font-size: 10px; background: transparent;")
+            self._badge_lbl.setText("Belum Dibaca")
+            self._badge_lbl.setStyleSheet(
+                "color: #1d4ed8; background: #dbeafe; border-radius: 6px;"
+                " padding: 3px 10px; font-size: 11px; font-weight: 600; border: none;"
+            )
+
+    def mousePressEvent(self, event) -> None:  # noqa: N802
+        super().mousePressEvent(event)
+        if not self._is_read:
+            try:
+                self._ctrl.sudah_dibaca(self._notif.id_notifikasi)
+                self._is_read = True
+                self._notif.sudah_dibaca = True
+                self._update_read_state()
+                self._apply_style()
+            except Exception:
+                pass
+
+
 class _DaftarNotifikasiDialog(QDialog):
-    """Dialog internal untuk menampilkan daftar riwayat notifikasi."""
+    """Dialog internal untuk menampilkan daftar riwayat notifikasi sebagai kartu."""
 
     def __init__(
         self,
@@ -159,68 +274,50 @@ class _DaftarNotifikasiDialog(QDialog):
 
     def _setup_ui(self) -> None:
         self.setWindowTitle("Daftar Notifikasi")
-        self.setMinimumSize(550, 350)
+        self.setMinimumSize(760, 500)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(14)
 
-        self._tabel = QTableWidget(0, 3)
-        self._tabel.setHorizontalHeaderLabels(["Pesan", "Waktu Kirim", "Status"])
-        self._tabel.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self._tabel.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self._tabel.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self._tabel.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self._tabel.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-
-        for notif in self._list_notifikasi:
-            baris = self._tabel.rowCount()
-            self._tabel.insertRow(baris)
-            self._tabel.setItem(baris, 0, QTableWidgetItem(notif.pesan_notifikasi))
-
-            waktu_text = ""
-            try:
-                waktu_text = notif.waktu_kirim.strftime("%d/%m/%Y %H:%M") if notif.waktu_kirim else ""
-            except Exception:
-                waktu_text = str(notif.waktu_kirim)
-
-            self._tabel.setItem(baris, 1, QTableWidgetItem(waktu_text))
-
-            status = "Dibaca" if notif.sudah_dibaca else "Belum Dibaca"
-            status_item = QTableWidgetItem(status)
-            status_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self._tabel.setItem(baris, 2, status_item)
-
-        self._tabel.cellDoubleClicked.connect(self._on_cell_double_clicked)
-
-        layout.addWidget(self._tabel)
-
+        # Summary header
         belum_dibaca = sum(1 for n in self._list_notifikasi if not n.sudah_dibaca)
-        label = QLabel(
-            f"{belum_dibaca} notifikasi belum dibaca"
-            if belum_dibaca > 0 else "Semua notifikasi sudah dibaca."
-        )
-        layout.addWidget(label)
+        if belum_dibaca > 0:
+            header_lbl = QLabel(f"{belum_dibaca} notifikasi belum dibaca")
+            header_lbl.setStyleSheet("font-size: 15px; font-weight: 700; color: #1a1a2e;")
+        else:
+            header_lbl = QLabel("Semua notifikasi sudah dibaca")
+            header_lbl.setStyleSheet("font-size: 15px; font-weight: 600; color: #64748b;")
+        layout.addWidget(header_lbl)
+
+        hint_lbl = QLabel("Klik kartu untuk menandai sudah dibaca.")
+        hint_lbl.setStyleSheet("font-size: 12px; color: #94a3b8;")
+        layout.addWidget(hint_lbl)
+
+        # Scroll area dengan kartu
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+
+        cards_widget = QWidget()
+        cards_layout = QVBoxLayout(cards_widget)
+        cards_layout.setContentsMargins(0, 4, 0, 4)
+        cards_layout.setSpacing(10)
+
+        if not self._list_notifikasi:
+            empty = QLabel("Tidak ada notifikasi.")
+            empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            empty.setStyleSheet("color: #64748b; font-size: 14px; padding: 40px;")
+            cards_layout.addWidget(empty)
+        else:
+            for notif in self._list_notifikasi:
+                card = _NotifCard(notif, self._notifikasi_controller)
+                cards_layout.addWidget(card)
+
+        cards_layout.addStretch()
+        scroll.setWidget(cards_widget)
+        layout.addWidget(scroll)
 
         tombol = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         tombol.rejected.connect(self.reject)
         layout.addWidget(tombol)
-
-    def _on_cell_double_clicked(self, row: int, column: int) -> None:
-        """Tandai notifikasi yang dipilih sebagai sudah dibaca saat user double-click."""
-        try:
-            item = self._tabel.item(row, 0)
-            if item is None:
-                return
-            notif_obj = None
-            if row < len(self._list_notifikasi):
-                notif_obj = self._list_notifikasi[row]
-
-            if notif_obj is None:
-                return
-
-            if not notif_obj.sudah_dibaca:
-                self._notifikasi_controller.sudah_dibaca(notif_obj.id_notifikasi)
-                status_item = QTableWidgetItem("Dibaca")
-                status_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                self._tabel.setItem(row, 2, status_item)
-        except Exception:
-            return

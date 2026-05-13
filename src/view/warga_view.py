@@ -2,16 +2,20 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, List
 
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QFrame,
+    QGraphicsDropShadowEffect,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -67,8 +71,7 @@ class WargaView(QWidget):
         dialog.exec()
 
     def tampilkan_daftar_warga(self) -> None:
-        """Menampilkan halaman daftar warga dalam format tabel dengan fitur pencarian
-        berdasarkan nama, alamat, atau nomor HP."""
+        """Menampilkan halaman daftar warga dalam format tabel dengan fitur pencarian."""
         root_layout = self._siapkan_root_layout()
 
         header_layout = QHBoxLayout()
@@ -93,14 +96,13 @@ class WargaView(QWidget):
         self._table_warga.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self._table_warga.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self._table_warga.setAlternatingRowColors(True)
-        self._table_warga.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self._table_warga.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self._table_warga.horizontalHeader().setSectionResizeMode(
-            2, QHeaderView.ResizeMode.ResizeToContents
-        )
-        self._table_warga.horizontalHeader().setSectionResizeMode(
-            3, QHeaderView.ResizeMode.ResizeToContents
-        )
+
+        hdr = self._table_warga.horizontalHeader()
+        hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        hdr.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
+        self._table_warga.setColumnWidth(3, 160)
 
         root_layout.addLayout(header_layout)
         root_layout.addWidget(self._search_input)
@@ -109,7 +111,6 @@ class WargaView(QWidget):
         self._isi_tabel_warga(self._warga_controller.lihat_daftar_warga())
 
     def _siapkan_root_layout(self) -> QVBoxLayout:
-        """Menyiapkan layout utama dan membersihkan konten lama."""
         layout = self.layout()
         if layout is None:
             root_layout = QVBoxLayout(self)
@@ -145,21 +146,20 @@ class WargaView(QWidget):
 
             aksi_widget = QWidget()
             aksi_layout = QHBoxLayout(aksi_widget)
-            aksi_layout.setContentsMargins(0, 0, 0, 0)
-            aksi_layout.setSpacing(8)
+            aksi_layout.setContentsMargins(4, 2, 4, 2)
+            aksi_layout.setSpacing(6)
 
             tombol_lihat = QPushButton("Lihat")
+            tombol_lihat.setFixedHeight(28)
             tombol_lihat.clicked.connect(
-                lambda checked=False, id_warga=warga.id_warga: self.tampilkan_detail_warga(
-                    id_warga
-                )
+                lambda checked=False, id_warga=warga.id_warga: self.tampilkan_detail_warga(id_warga)
             )
 
             tombol_hapus = QPushButton("Hapus")
+            tombol_hapus.setFixedHeight(28)
+            tombol_hapus.setProperty("danger", "true")
             tombol_hapus.clicked.connect(
-                lambda checked=False, id_warga=warga.id_warga: self._hapus_warga_dari_tabel(
-                    id_warga
-                )
+                lambda checked=False, id_warga=warga.id_warga: self._hapus_warga_dari_tabel(id_warga)
             )
 
             aksi_layout.addWidget(tombol_lihat)
@@ -178,7 +178,6 @@ class WargaView(QWidget):
                 or keyword in warga.alamat.lower()
                 or keyword in warga.no_hp.lower()
             ]
-
         self._isi_tabel_warga(daftar_warga)
 
     def _hapus_warga_dari_tabel(self, id_warga: str) -> None:
@@ -200,7 +199,7 @@ class WargaView(QWidget):
             )
 
     def tampilkan_detail_warga(self, id_warga: str) -> None:
-        """Menampilkan halaman detail data satu warga berdasarkan ID.
+        """Menampilkan halaman detail data satu warga beserta riwayat reservasinya.
 
         Parameter:
             id_warga: ID warga yang ingin ditampilkan detailnya.
@@ -212,32 +211,129 @@ class WargaView(QWidget):
 
         root_layout = self._siapkan_root_layout()
 
+        # Header: nama warga + tombol aksi
         header_layout = QHBoxLayout()
-        title = QLabel("Detail Warga")
-        title.setStyleSheet("font-size: 22px; font-weight: 700;")
 
-        tombol_kembali = QPushButton("Kembali")
+        title_col = QVBoxLayout()
+        title_col.setSpacing(4)
+
+        title = QLabel(warga.nama)
+        title.setStyleSheet("font-size: 22px; font-weight: 700; color: #1a1a2e;")
+
+        subtitle = QLabel(f"{warga.alamat} — {warga.no_hp}")
+        subtitle.setStyleSheet("color: #64748b; font-size: 13px;")
+
+        title_col.addWidget(title)
+        title_col.addWidget(subtitle)
+        header_layout.addLayout(title_col)
+        header_layout.addStretch()
+
+        tombol_edit = QPushButton("Edit")
+        tombol_edit.setProperty("outline", "true")
+        tombol_edit.setFixedHeight(34)
+        tombol_edit.clicked.connect(lambda: self.tampilkan_form_ubah_warga(id_warga))
+
+        tombol_hapus = QPushButton("Hapus")
+        tombol_hapus.setProperty("danger", "true")
+        tombol_hapus.setFixedHeight(34)
+        tombol_hapus.clicked.connect(lambda: self._hapus_warga_dari_tabel(id_warga))
+
+        tombol_kembali = QPushButton("← Kembali")
+        tombol_kembali.setProperty("outline", "true")
+        tombol_kembali.setFixedHeight(34)
         tombol_kembali.clicked.connect(self.tampilkan_daftar_warga)
 
-        header_layout.addWidget(title)
-        header_layout.addStretch()
-        tombol_edit = QPushButton("Edit")
-        tombol_edit.clicked.connect(lambda: self.tampilkan_form_ubah_warga(id_warga))
-        tombol_hapus = QPushButton("Hapus")
-        tombol_hapus.clicked.connect(lambda: self._hapus_warga_dari_tabel(id_warga))
-        header_layout.addWidget(tombol_kembali)
         header_layout.addWidget(tombol_edit)
+        header_layout.addSpacing(4)
         header_layout.addWidget(tombol_hapus)
-
-        detail_layout = QVBoxLayout()
-        detail_layout.setSpacing(8)
-        detail_layout.addWidget(QLabel(f"Nama: {warga.nama}"))
-        detail_layout.addWidget(QLabel(f"Alamat: {warga.alamat}"))
-        detail_layout.addWidget(QLabel(f"No. HP: {warga.no_hp}"))
+        header_layout.addSpacing(4)
+        header_layout.addWidget(tombol_kembali)
 
         root_layout.addLayout(header_layout)
-        root_layout.addLayout(detail_layout)
-        root_layout.addStretch()
+
+        # Riwayat Reservasi card
+        card = QFrame()
+        card.setStyleSheet(
+            "QFrame { background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; }"
+        )
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(12)
+        shadow.setOffset(0, 2)
+        shadow.setColor(QColor(0, 0, 0, 15))
+        card.setGraphicsEffect(shadow)
+
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(24, 20, 24, 20)
+        card_layout.setSpacing(14)
+
+        riwayat_title = QLabel("Riwayat Reservasi")
+        riwayat_title.setStyleSheet(
+            "font-size: 16px; font-weight: 700; color: #1a1a2e; background: transparent;"
+        )
+        card_layout.addWidget(riwayat_title)
+
+        tabel = QTableWidget()
+        tabel.setColumnCount(5)
+        tabel.setHorizontalHeaderLabels(["Fasilitas", "Tanggal", "Jam", "Biaya", "Status"])
+        tabel.verticalHeader().setVisible(False)
+        tabel.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        tabel.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        tabel.setAlternatingRowColors(True)
+        tabel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+        th = tabel.horizontalHeader()
+        th.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        th.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        th.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        th.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        th.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+
+        try:
+            all_res = self._data_repository.get_list_reservasi()
+            reservasi_warga = [r for r in all_res if r.id_warga == id_warga]
+        except Exception:
+            reservasi_warga = []
+
+        if not reservasi_warga:
+            tabel.setRowCount(1)
+            empty_item = QTableWidgetItem("Belum ada riwayat reservasi.")
+            empty_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            tabel.setItem(0, 0, empty_item)
+            tabel.setSpan(0, 0, 1, 5)
+        else:
+            tabel.setRowCount(len(reservasi_warga))
+            for row, r in enumerate(reservasi_warga):
+                try:
+                    fas_obj = self._data_repository.cari_fasilitas(r.id_fasilitas)
+                    nama_fas = fas_obj.nama if fas_obj else r.id_fasilitas
+                except Exception:
+                    nama_fas = r.id_fasilitas
+
+                tgl_str = r.tanggal_dibuat.strftime("%d/%m/%Y") if r.tanggal_dibuat else "-"
+                jam_str = (
+                    f"{r.jam_mulai.strftime('%H:%M')}–{r.jam_selesai.strftime('%H:%M')}"
+                    if r.jam_mulai and r.jam_selesai else "-"
+                )
+                biaya_str = "Rp " + f"{int(r.total_biaya):,}".replace(",", ".")
+
+                tabel.setItem(row, 0, QTableWidgetItem(nama_fas))
+                tabel.setItem(row, 1, QTableWidgetItem(tgl_str))
+                tabel.setItem(row, 2, QTableWidgetItem(jam_str))
+                tabel.setItem(row, 3, QTableWidgetItem(biaya_str))
+
+                if r.status.value == "LUNAS":
+                    st_item = QTableWidgetItem("LUNAS")
+                    st_item.setForeground(QColor("#166534"))
+                    st_item.setBackground(QColor("#dcfce7"))
+                else:
+                    st_item = QTableWidgetItem("BELUM DIBAYAR")
+                    st_item.setForeground(QColor("#92400e"))
+                    st_item.setBackground(QColor("#fef3c7"))
+                st_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                tabel.setItem(row, 4, st_item)
+
+        card_layout.addWidget(tabel)
+        root_layout.addWidget(card)
 
     def tampilkan_form_ubah_warga(self, id_warga: str) -> None:
         """Menampilkan form edit dengan data warga yang sudah ada sebagai nilai awal.
@@ -323,7 +419,6 @@ class WargaView(QWidget):
             pesan_error.append("No. HP harus terdiri dari 10 sampai 13 digit.")
         elif not self._warga_controller.validasi_data_warga(nama, alamat, no_hp):
             pesan_error.append("Data warga tidak valid.")
-
         return pesan_error
 
     def tampilkan_konfirmasi_hapus(self, id_warga: str) -> bool:
