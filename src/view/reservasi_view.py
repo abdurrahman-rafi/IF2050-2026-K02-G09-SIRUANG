@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QDateEdit,
+    QSpinBox,
     QTimeEdit,
     QVBoxLayout,
     QWidget,
@@ -60,11 +61,17 @@ class ReservasiView(QWidget):
         input_jam_mulai = QTimeEdit()
         input_jam_selesai = QTimeEdit()
 
+        spin_jam_notif = QSpinBox()
+        spin_jam_notif.setRange(1, 24)
+        spin_jam_notif.setValue(self._reservasi_ctrl.get_jam_notifikasi())
+        spin_jam_notif.setSuffix(" jam sebelum berakhir")
+
         layout.addRow("ID Warga:", input_warga)
         layout.addRow("ID Fasilitas:", input_fasilitas)
         layout.addRow("Tanggal:", input_tanggal)
         layout.addRow("Jam Mulai:", input_jam_mulai)
         layout.addRow("Jam Selesai:", input_jam_selesai)
+        layout.addRow("Notifikasi:", spin_jam_notif)
 
         baris_tombol = QHBoxLayout()
         btn_batal = QPushButton("Batal")
@@ -83,6 +90,7 @@ class ReservasiView(QWidget):
                 input_tanggal.date().toPyDate(),
                 input_jam_mulai.time().toPyTime(),
                 input_jam_selesai.time().toPyTime(),
+                spin_jam_notif.value(),
             )
             if berhasil:
                 self.tampilkan_pesan_berhasil("Reservasi berhasil ditambahkan!")

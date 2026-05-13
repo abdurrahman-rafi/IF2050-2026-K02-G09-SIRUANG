@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
+    QSpinBox,
     QFormLayout,
     QFrame,
     QGraphicsDropShadowEffect,
@@ -400,6 +401,13 @@ class FasilitasView(QWidget):
         input_jam_selesai.timeChanged.connect(lambda _: hitung_estimasi())
         hitung_estimasi()
 
+        spin_jam_notif = QSpinBox()
+        spin_jam_notif.setRange(1, 24)
+        spin_jam_notif.setValue(
+            self._reservasi_ctrl.get_jam_notifikasi() if self._reservasi_ctrl else 2
+        )
+        spin_jam_notif.setSuffix(" jam sebelum berakhir")
+
         form = QFormLayout()
         form.setSpacing(12)
         form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
@@ -407,6 +415,7 @@ class FasilitasView(QWidget):
         form.addRow("Tanggal", input_tanggal)
         form.addRow("Jam Mulai", input_jam_mulai)
         form.addRow("Jam Selesai", input_jam_selesai)
+        form.addRow("Notifikasi", spin_jam_notif)
         left_layout.addLayout(form)
         left_layout.addWidget(lbl_estimasi)
         left_layout.addStretch()
@@ -428,6 +437,7 @@ class FasilitasView(QWidget):
                 input_tanggal.date().toPyDate(),
                 input_jam_mulai.time().toPyTime(),
                 input_jam_selesai.time().toPyTime(),
+                spin_jam_notif.value(),
             )
             if berhasil:
                 self.tampilkan_pesan_berhasil("Reservasi berhasil ditambahkan!")
