@@ -245,17 +245,6 @@ class _NotifCard(QFrame):
                 " padding: 3px 10px; font-size: 11px; font-weight: 600; border: none;"
             )
 
-    def mousePressEvent(self, event) -> None:  # noqa: N802
-        super().mousePressEvent(event)
-        if not self._is_read:
-            try:
-                self._ctrl.sudah_dibaca(self._notif.id_notifikasi)
-                self._is_read = True
-                self._notif.sudah_dibaca = True
-                self._update_read_state()
-                self._apply_style()
-            except Exception:
-                pass
 
 
 class _DaftarNotifikasiDialog(QDialog):
@@ -276,21 +265,29 @@ class _DaftarNotifikasiDialog(QDialog):
         self.setWindowTitle("Daftar Notifikasi")
         self.setMinimumSize(760, 500)
 
+        # Tandai semua yang belum dibaca sebagai sudah dibaca saat dialog dibuka
+        for n in self._list_notifikasi:
+            if not n.sudah_dibaca:
+                try:
+                    self._notifikasi_controller.sudah_dibaca(n.id_notifikasi)
+                except Exception:
+                    pass
+                n.sudah_dibaca = True
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 20, 24, 20)
         layout.setSpacing(14)
 
-        # Summary header
-        belum_dibaca = sum(1 for n in self._list_notifikasi if not n.sudah_dibaca)
-        if belum_dibaca > 0:
-            header_lbl = QLabel(f"{belum_dibaca} notifikasi belum dibaca")
+        jumlah = len(self._list_notifikasi)
+        if jumlah > 0:
+            header_lbl = QLabel(f"{jumlah} notifikasi")
             header_lbl.setStyleSheet("font-size: 15px; font-weight: 700; color: #1a1a2e;")
         else:
-            header_lbl = QLabel("Semua notifikasi sudah dibaca")
+            header_lbl = QLabel("Tidak ada notifikasi")
             header_lbl.setStyleSheet("font-size: 15px; font-weight: 600; color: #64748b;")
         layout.addWidget(header_lbl)
 
-        hint_lbl = QLabel("Klik kartu untuk menandai sudah dibaca.")
+        hint_lbl = QLabel("Notifikasi otomatis ditandai dibaca saat panel ini dibuka.")
         hint_lbl.setStyleSheet("font-size: 12px; color: #94a3b8;")
         layout.addWidget(hint_lbl)
 

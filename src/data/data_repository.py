@@ -461,3 +461,21 @@ class DataRepository:
             List berisi semua objek Notifikasi.
         """
         return list(self._list_notifikasi)
+
+    def update_sudah_dibaca(self, id_notifikasi: str) -> bool:
+        """Menandai notifikasi sebagai sudah dibaca di in-memory dan database.
+
+        Parameter:
+            id_notifikasi: ID notifikasi yang akan ditandai sudah dibaca.
+
+        Returns:
+            True jika berhasil, False jika notifikasi tidak ditemukan atau gagal update.
+        """
+        n = self.cari_notifikasi(id_notifikasi)
+        if n is None:
+            return False
+        query = "UPDATE notifikasi SET sudah_dibaca=%s WHERE id_notifikasi=%s"
+        berhasil = self._database_manager.simpan_data(query, (True, id_notifikasi))
+        if berhasil:
+            n.tandai_sudah_dibaca()
+        return berhasil

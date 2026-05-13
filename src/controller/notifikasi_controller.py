@@ -84,18 +84,14 @@ class NotifikasiController:
         return notifikasi if berhasil else None
 
     def sudah_dibaca(self, id_notifikasi: str) -> bool:
-        """Memperbarui atribut sudah_dibaca pada notifikasi menjadi True.
+        """Memperbarui atribut sudah_dibaca pada notifikasi menjadi True dan menyimpan ke database.
 
         Parameter:
             id_notifikasi: ID notifikasi yang akan ditandai sudah dibaca.
         Returns:
             True jika pembaruan berhasil, False jika notifikasi tidak ditemukan.
         """
-        notifikasi = self._data_repository.cari_notifikasi(id_notifikasi)
-        if notifikasi is None:
-            return False
-        notifikasi.tandai_sudah_dibaca()
-        return True
+        return self._data_repository.update_sudah_dibaca(id_notifikasi)
 
     def lihat_daftar_notifikasi(self) -> List[Notifikasi]:
         """Mengambil seluruh daftar notifikasi yang tersimpan di DataRepository.
