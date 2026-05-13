@@ -1,6 +1,6 @@
 import sys
 
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QDialog
 
 from src.config.notification_config import NotificationConfig
 from src.controller.fasilitas_controller import FasilitasController
@@ -11,6 +11,7 @@ from src.controller.warga_controller import WargaController
 from src.data.database_manager import DatabaseManager
 from src.data.data_repository import DataRepository
 from src.service.notification_service import NotificationService
+from src.view.login_view import LoginDialog
 from src.view.main_window import MainWindow
 
 # TODO: pindahkan konfigurasi database ke file .env atau config.ini
@@ -20,6 +21,10 @@ DATABASE_URL = "postgresql://postgres:123456@localhost:5432/siruang"
 def main() -> None:
     """Entry point aplikasi SIRUANG. Menginisialisasi semua layer dan menjalankan GUI."""
     app = QApplication(sys.argv)
+
+    login = LoginDialog()
+    if login.exec() != QDialog.DialogCode.Accepted:
+        sys.exit(0)
 
     db_manager = DatabaseManager(DATABASE_URL)
     db_manager.buka_koneksi()
