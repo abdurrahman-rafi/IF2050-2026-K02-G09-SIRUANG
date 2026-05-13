@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Dict, Optional
 
-from PyQt6.QtCore import QAbstractAnimation, QEasingCurve, QPropertyAnimation, Qt
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QApplication,
     QFrame,
-    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -188,54 +187,6 @@ _PAGE_WARGA      = 2
 _PAGE_LAPORAN    = 3
 
 
-class _FadingStack(QStackedWidget):
-    """QStackedWidget dengan transisi fade antar halaman (120ms out + 200ms in)."""
-
-    def __init__(self, parent=None) -> None:
-        super().__init__(parent)
-        self._busy = False
-
-    def switch_to(self, index: int) -> None:
-        if index == self.currentIndex():
-            return
-        if not self.isVisible() or self._busy:
-            self.setCurrentIndex(index)
-            return
-
-        outgoing = self.currentWidget()
-        if outgoing is None:
-            self.setCurrentIndex(index)
-            return
-
-        eff_out = QGraphicsOpacityEffect(outgoing)
-        outgoing.setGraphicsEffect(eff_out)
-
-        anim_out = QPropertyAnimation(eff_out, b"opacity", self)
-        anim_out.setDuration(120)
-        anim_out.setStartValue(1.0)
-        anim_out.setEndValue(0.0)
-        anim_out.setEasingCurve(QEasingCurve.Type.OutCubic)
-
-        def _swap() -> None:
-            outgoing.setGraphicsEffect(None)
-            self.setCurrentIndex(index)
-            incoming = self.currentWidget()
-            eff_in = QGraphicsOpacityEffect(incoming)
-            incoming.setGraphicsEffect(eff_in)
-            anim_in = QPropertyAnimation(eff_in, b"opacity", self)
-            anim_in.setDuration(200)
-            anim_in.setStartValue(0.0)
-            anim_in.setEndValue(1.0)
-            anim_in.setEasingCurve(QEasingCurve.Type.InCubic)
-            anim_in.finished.connect(lambda: incoming.setGraphicsEffect(None))
-            anim_in.finished.connect(lambda: setattr(self, "_busy", False))
-            anim_in.start(QAbstractAnimation.DeletionPolicy.DeleteWhenStopped)
-
-        self._busy = True
-        anim_out.finished.connect(_swap)
-        anim_out.start(QAbstractAnimation.DeletionPolicy.DeleteWhenStopped)
-
-
 class MainWindow(QMainWindow):
     """Window utama aplikasi SIRUANG: navbar tetap dan routing antar halaman."""
 
@@ -258,7 +209,7 @@ class MainWindow(QMainWindow):
         self._data_repository = data_repository
 
         self._nav_buttons: Dict[str, QPushButton] = {}
-        self._stack: Optional[_FadingStack] = None
+        self._stack: Optional[QStackedWidget] = None
         self._notifikasi_view: Optional[NotifikasiView] = None
 
         QApplication.instance().setStyleSheet(GLOBAL_STYLE)
@@ -282,7 +233,7 @@ class MainWindow(QMainWindow):
 
         root.addWidget(self._buat_navbar())
 
-        self._stack = _FadingStack()
+        self._stack = QStackedWidget()
         self._stack.setObjectName("contentStack")
         self._isi_stack()
         root.addWidget(self._stack)
@@ -353,7 +304,7 @@ class MainWindow(QMainWindow):
     def _navigasi_ke(self, label: str, page_index: int) -> None:
         if self._stack is None:
             return
-        self._stack.switch_to(page_index)
+        self._stack.setCurrentIndex(page_index)
         for key, btn in self._nav_buttons.items():
             btn.setProperty("nav", "active" if key == label else "true")
             btn.style().polish(btn)
