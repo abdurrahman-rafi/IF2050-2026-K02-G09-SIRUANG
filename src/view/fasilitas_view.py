@@ -614,10 +614,12 @@ class FasilitasView(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        outer.addWidget(_CardImage(fasilitas, card))
+        card_image = _CardImage(fasilitas, card)
+        card_image.setFixedHeight(_IMG_H)
+        outer.addWidget(card_image)
 
         body = QWidget()
-        body.setStyleSheet("background: transparent; border: none;")
+        body.setStyleSheet("background: #ffffff; border: none;")
         body_layout = QVBoxLayout(body)
         body_layout.setContentsMargins(16, 14, 16, 16)
         body_layout.setSpacing(4)
@@ -717,7 +719,6 @@ class FasilitasView(QWidget):
         for i, fasilitas in enumerate(daftar_fasilitas):
             kartu = self._buat_kartu(fasilitas)
             self._grid.addWidget(kartu, i // jumlah_kolom, i % jumlah_kolom)
-            QTimer.singleShot(i * 55, lambda k=kartu: self._fade_in_card(k))
 
         # Isi kolom kosong agar distribusi rata
         remainder = len(daftar_fasilitas) % jumlah_kolom
