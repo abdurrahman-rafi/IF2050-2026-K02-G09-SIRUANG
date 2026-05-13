@@ -25,6 +25,10 @@ class ReservasiController:
         self._data_repository: DataRepository = data_repository
         self._notifikasi_controller: NotifikasiController = notifikasi_controller
 
+    def get_jam_notifikasi(self) -> int:
+        """Kembalikan nilai jam notifikasi saat ini dari NotifikasiController."""
+        return self._notifikasi_controller.get_jam_notifikasi()
+
     # TODO
     def tambah_reservasi(
         self,
@@ -33,6 +37,7 @@ class ReservasiController:
         tanggal: date,
         jam_mulai: time,
         jam_selesai: time,
+        jam_notifikasi_sebelum: int = 2,
     ) -> bool:
         """Mencatat reservasi baru setelah memvalidasi jadwal, warga, dan fasilitas.
 
@@ -65,6 +70,7 @@ class ReservasiController:
         )
 
         self._data_repository.tambah_reservasi(reservasi_baru)
+        self._notifikasi_controller.simpan_jam_sebelum(jam_notifikasi_sebelum)
         return True
         
 
