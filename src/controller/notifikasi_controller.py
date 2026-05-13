@@ -5,13 +5,15 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
+from src.config.notification_config import NotificationConfig
+from src.entity.enums import StatusReservasi
+
 if TYPE_CHECKING:
     from src.data.data_repository import DataRepository
     from src.entity.notifikasi import Notifikasi
     from src.entity.reservasi import Reservasi
     from src.service.notification_service import NotificationService
 
-THRESHOLD_MENIT: int = 30
 logger = logging.getLogger(__name__)
 
 
@@ -22,38 +24,61 @@ class NotifikasiController:
         self,
         data_repository: DataRepository,
         notification_service: NotificationService,
+        notification_config: Optional[NotificationConfig] = None,
     ) -> None:
         self._data_repository: DataRepository = data_repository
         self._notification_service: NotificationService = notification_service
+        self._config: NotificationConfig = notification_config or NotificationConfig()
+
+    # ------------------------------------------------------------------
+    # Scheduler logic
+    # ------------------------------------------------------------------
 
     def periksa_reservasi_akan_berakhir(
         self, list_reservasi: List[Reservasi]
     ) -> List[Reservasi]:
-        """Memeriksa jadwal dan mengembalikan daftar reservasi yang waktu sewanya hampir habis.
+        """Kembalikan reservasi aktif yang jam_selesai-nya berada dalam rentang NOTIFICATION_HOURS_BEFORE jam ke depan.
 
         Parameter:
-            list_reservasi: List semua reservasi aktif yang akan diperiksa.
+            list_reservasi: List semua reservasi yang akan diperiksa.
         Returns:
-            List Reservasi yang jam selesainya akan segera tiba.
+            List Reservasi yang memenuhi kriteria waktu.
         """
         hasil: List[Reservasi] = []
         sekarang = datetime.now()
+        batas_detik = self._config.notification_hours_before * 3600
 
         for reservasi in list_reservasi:
-            jam_selesai: Optional[datetime] = getattr(reservasi, "jam_selesai", None)
-            if jam_selesai is None:
+            # Hanya reservasi yang masih aktif (belum dibayar / belum selesai)
+            if getattr(reservasi, "status", None) == StatusReservasi.LUNAS:
                 continue
+
+            tanggal = getattr(reservasi, "tanggal_dibuat", None)
+            jam_selesai_time = getattr(reservasi, "jam_selesai", None)
+            if tanggal is None or jam_selesai_time is None:
+                continue
+
             try:
-                selisih_menit = (jam_selesai - sekarang).total_seconds() / 60
-                if 0 < selisih_menit <= THRESHOLD_MENIT:
+                jam_selesai_dt = datetime.combine(tanggal, jam_selesai_time)
+                selisih_detik = (jam_selesai_dt - sekarang).total_seconds()
+                if 0 < selisih_detik <= batas_detik:
                     hasil.append(reservasi)
             except Exception:
-                logger.exception("Gagal menghitung selisih waktu reservasi %s", getattr(reservasi, "id_reservasi", "?"))
+                logger.exception(
+                    "Gagal menghitung selisih waktu reservasi %s",
+                    getattr(reservasi, "id_reservasi", "?"),
+                )
 
         return hasil
 
+    # ------------------------------------------------------------------
+    # Notification creation
+    # ------------------------------------------------------------------
+
     def kirim_notifikasi(self, id_reservasi: str) -> Optional[Notifikasi]:
-        """Memanggil NotificationService untuk mengirimkan notifikasi in-app ke pengelola.
+        """Buat dan kirim notifikasi in-app pengingat untuk reservasi yang hampir berakhir.
+
+        Format pesan: "Booking [ID_RESERVASI] akan segera berakhir dalam X jam."
 
         Parameter:
             id_reservasi: ID reservasi yang menjadi subjek notifikasi.
@@ -66,11 +91,14 @@ class NotifikasiController:
         if reservasi is None:
             return None
 
-        pesan = (
-            f"Reservasi akan segera berakhir!\n"
-            f"Reservasi ID: {id_reservasi}\n"
-            f"Jam Selesai: {reservasi.jam_selesai.strftime('%H:%M')}"
-        )
+        sekarang = datetime.now()
+        try:
+            jam_selesai_dt = datetime.combine(reservasi.tanggal_dibuat, reservasi.jam_selesai)
+            sisa_jam = max(1, round((jam_selesai_dt - sekarang).total_seconds() / 3600))
+        except Exception:
+            sisa_jam = self._config.notification_hours_before
+
+        pesan = f"Booking {id_reservasi} akan segera berakhir dalam {sisa_jam} jam."
 
         notifikasi = Notifikasi(
             id_notifikasi=str(uuid.uuid4()),
@@ -80,11 +108,30 @@ class NotifikasiController:
             sudah_dibaca=False,
         )
 
+        self.simpan_notifikasi(notifikasi)
         berhasil = self._notification_service.kirim(notifikasi)
         return notifikasi if berhasil else None
 
+    def simpan_notifikasi(self, notifikasi: Notifikasi) -> bool:
+        """Simpan notifikasi ke DataRepository.
+
+        Dipanggil oleh NotificationService.kirim() untuk menghindari akses langsung
+        ke _data_repository dari luar controller.
+
+        Parameter:
+            notifikasi: Objek Notifikasi yang akan disimpan.
+        Returns:
+            True jika berhasil.
+        """
+        try:
+            self._data_repository.tambah_notifikasi(notifikasi)
+            return True
+        except Exception:
+            logger.exception("Gagal menyimpan notifikasi %s", notifikasi.id_notifikasi)
+            return False
+
     def sudah_dibaca(self, id_notifikasi: str) -> bool:
-        """Memperbarui atribut sudah_dibaca pada notifikasi menjadi True dan menyimpan ke database.
+        """Tandai notifikasi sebagai sudah dibaca.
 
         Parameter:
             id_notifikasi: ID notifikasi yang akan ditandai sudah dibaca.
@@ -94,21 +141,26 @@ class NotifikasiController:
         return self._data_repository.update_sudah_dibaca(id_notifikasi)
 
     def lihat_daftar_notifikasi(self) -> List[Notifikasi]:
-        """Mengambil seluruh daftar notifikasi yang tersimpan di DataRepository.
+        """Ambil daftar notifikasi terbaru, dibatasi oleh NOTIFICATION_MAX_DISPLAY.
 
         Returns:
-            List berisi semua objek Notifikasi.
+            List notifikasi diurutkan descending waktu_kirim, maks NOTIFICATION_MAX_DISPLAY item.
         """
-        return self._data_repository.get_list_notifikasi()
+        semua = self._data_repository.get_list_notifikasi()
+        try:
+            semua_sorted = sorted(semua, key=lambda n: n.waktu_kirim, reverse=True)
+        except Exception:
+            semua_sorted = semua
+        return semua_sorted[: self._config.notification_max_display]
 
     def create_notifikasi(self, id_reservasi: str, pesan: str) -> bool:
-        """Mengatur logika pembuatan dan penyimpanan data notifikasi baru.
+        """Buat dan simpan notifikasi baru dengan pesan kustom.
 
         Parameter:
             id_reservasi: ID reservasi yang menjadi subjek notifikasi.
             pesan: Isi pesan notifikasi.
         Returns:
-            True jika notifikasi berhasil dibuat dan disimpan, False jika gagal.
+            True jika notifikasi berhasil dibuat dan dikirim, False jika gagal.
         """
         from src.entity.notifikasi import Notifikasi
 
@@ -119,4 +171,5 @@ class NotifikasiController:
             waktu_kirim=datetime.now(),
             sudah_dibaca=False,
         )
+        self.simpan_notifikasi(notifikasi)
         return self._notification_service.kirim(notifikasi)

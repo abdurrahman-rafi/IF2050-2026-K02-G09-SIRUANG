@@ -2,6 +2,7 @@ import sys
 
 from PyQt6.QtWidgets import QApplication
 
+from src.config.notification_config import NotificationConfig
 from src.controller.fasilitas_controller import FasilitasController
 from src.controller.laporan_controller import LaporanController
 from src.controller.notifikasi_controller import NotifikasiController
@@ -24,13 +25,17 @@ def main() -> None:
     db_manager.buka_koneksi()
 
     repository = DataRepository(db_manager)
+    notification_config = NotificationConfig()
     notification_service = NotificationService()
 
-    notifikasi_ctrl = NotifikasiController(repository, notification_service)
+    notifikasi_ctrl = NotifikasiController(repository, notification_service, notification_config)
     warga_ctrl = WargaController(repository)
     fasilitas_ctrl = FasilitasController(repository)
     reservasi_ctrl = ReservasiController(repository, notifikasi_ctrl)
     laporan_ctrl = LaporanController(repository)
+
+    # Inject controller ke service (diperlukan sebelum scheduler start)
+    notification_service.set_controller(notifikasi_ctrl)
 
     window = MainWindow(
         warga_ctrl,
@@ -40,9 +45,17 @@ def main() -> None:
         notifikasi_ctrl,
         repository,
     )
+
+    # Daftarkan callback: badge navbar diperbarui setiap kali notifikasi baru masuk
+    notification_service.register_callback(lambda _notif: window.perbarui_badge_notifikasi(0))
+
+    # Mulai scheduler setelah window siap
+    notification_service.start_scheduler()
+
     window.show()
 
     exit_code = app.exec()
+    notification_service.stop_scheduler()
     db_manager.tutup_koneksi()
     sys.exit(exit_code)
 
