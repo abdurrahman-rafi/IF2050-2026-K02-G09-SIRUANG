@@ -21,7 +21,6 @@ from src.view.dashboard_view import DashboardView
 from src.view.fasilitas_view import FasilitasView
 from src.view.laporan_view import LaporanView
 from src.view.notifikasi_view import NotifikasiView
-from src.view.reservasi_view import ReservasiView
 from src.view.warga_view import WargaView
 
 if TYPE_CHECKING:
@@ -186,8 +185,7 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
 _PAGE_DASHBOARD  = 0
 _PAGE_FASILITAS  = 1
 _PAGE_WARGA      = 2
-_PAGE_RESERVASI  = 3
-_PAGE_LAPORAN    = 4
+_PAGE_LAPORAN    = 3
 
 
 class _FadingStack(QStackedWidget):
@@ -314,7 +312,6 @@ class MainWindow(QMainWindow):
             ("Dashboard",  self.navigasi_ke_dashboard),
             ("Fasilitas",  self.navigasi_ke_fasilitas),
             ("Warga",      self.navigasi_ke_warga),
-            ("Reservasi",  self.navigasi_ke_reservasi),
             ("Laporan",    self.navigasi_ke_laporan),
         ]
         for label, slot in nav_items:
@@ -345,8 +342,9 @@ class MainWindow(QMainWindow):
         )
         self._stack.addWidget(FasilitasView(self._data_repository, self._reservasi_ctrl))
         self._stack.addWidget(WargaView(self._warga_ctrl, self._data_repository))
-        self._stack.addWidget(ReservasiView(self._reservasi_ctrl, self._data_repository))
-        self._stack.addWidget(LaporanView(self._laporan_ctrl, self._data_repository))
+        self._stack.addWidget(
+            LaporanView(self._laporan_ctrl, self._data_repository, self._reservasi_ctrl)
+        )
 
     # ------------------------------------------------------------------ #
     # Navigasi                                                             #
@@ -376,14 +374,14 @@ class MainWindow(QMainWindow):
         self._navigasi_ke("Warga", _PAGE_WARGA)
 
     def navigasi_ke_reservasi(self) -> None:
-        """Menampilkan halaman Daftar Reservasi sebagai konten utama."""
-        reservasi_page = self._stack.widget(_PAGE_RESERVASI)
-        if isinstance(reservasi_page, ReservasiView):
-            reservasi_page.muat_ulang()
-        self._navigasi_ke("Reservasi", _PAGE_RESERVASI)
+        """Alias ke navigasi_ke_laporan (Laporan adalah daftar reservasi)."""
+        self.navigasi_ke_laporan()
 
     def navigasi_ke_laporan(self) -> None:
         """Menampilkan halaman Laporan Reservasi sebagai konten utama."""
+        laporan_page = self._stack.widget(_PAGE_LAPORAN)
+        if isinstance(laporan_page, LaporanView):
+            laporan_page.muat_ulang()
         self._navigasi_ke("Laporan", _PAGE_LAPORAN)
 
     def navigasi_ke_notifikasi(self) -> None:
