@@ -3,15 +3,18 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Dict, Optional
 
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap
 from PyQt6.QtWidgets import (
     QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMenu,
     QPushButton,
     QSizePolicy,
     QStackedWidget,
+    QSystemTrayIcon,
     QVBoxLayout,
     QWidget,
 )
@@ -211,6 +214,7 @@ class MainWindow(QMainWindow):
         self._nav_buttons: Dict[str, QPushButton] = {}
         self._stack: Optional[QStackedWidget] = None
         self._notifikasi_view: Optional[NotifikasiView] = None
+        self._tray: Optional[QSystemTrayIcon] = None
 
         QApplication.instance().setStyleSheet(GLOBAL_STYLE)
         self.setup_ui()
@@ -223,6 +227,11 @@ class MainWindow(QMainWindow):
         """Menyiapkan tampilan awal window utama: navbar, area konten, dan judul aplikasi."""
         self.setWindowTitle("SIRUANG — Sistem Reservasi Fasilitas")
         self.setMinimumSize(1200, 720)
+
+        icon = _buat_app_icon()
+        self.setWindowIcon(icon)
+        QApplication.instance().setWindowIcon(icon)
+        self._setup_tray_icon(icon)
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -239,6 +248,25 @@ class MainWindow(QMainWindow):
         root.addWidget(self._stack)
 
         self.navigasi_ke_fasilitas()
+
+    def _setup_tray_icon(self, icon: QIcon) -> None:
+        """Buat dan tampilkan ikon di system tray dengan menu konteks."""
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            return
+
+        self._tray = QSystemTrayIcon(icon, self)
+        self._tray.setToolTip("SIRUANG — Sistem Reservasi Fasilitas")
+
+        menu = QMenu()
+        aksi_buka = menu.addAction("Buka SIRUANG")
+        aksi_buka.triggered.connect(self._buka_dari_tray)
+        menu.addSeparator()
+        aksi_keluar = menu.addAction("Keluar")
+        aksi_keluar.triggered.connect(QApplication.instance().quit)
+
+        self._tray.setContextMenu(menu)
+        self._tray.activated.connect(self._on_tray_activated)
+        self._tray.show()
 
     def _buat_navbar(self) -> QFrame:
         navbar = QFrame()
@@ -348,3 +376,52 @@ class MainWindow(QMainWindow):
         """
         if self._notifikasi_view is not None:
             self._notifikasi_view.update_badge()
+
+    def tampilkan_desktop_notification(self, judul: str, pesan: str) -> None:
+        """Tampilkan toast notifikasi di system tray OS.
+
+        Parameter:
+            judul: Judul notifikasi yang ditampilkan di toast.
+            pesan: Isi pesan notifikasi.
+        """
+        if self._tray is not None and self._tray.isVisible():
+            self._tray.showMessage(judul, pesan, QSystemTrayIcon.MessageIcon.Information, 4000)
+
+    def _buka_dari_tray(self) -> None:
+        """Tampilkan dan fokuskan window dari system tray."""
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
+    def _on_tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
+        """Buka window saat ikon tray di-double-click."""
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self._buka_dari_tray()
+
+
+# ------------------------------------------------------------------ #
+# Helper — App icon                                                    #
+# ------------------------------------------------------------------ #
+
+def _buat_app_icon() -> QIcon:
+    """Buat ikon aplikasi SIRUANG secara programatik (64×64, huruf S putih di latar biru)."""
+    size = 64
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.GlobalColor.transparent)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    # Latar belakang bulat biru
+    painter.setBrush(QColor("#003773"))
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.drawRoundedRect(0, 0, size, size, 14, 14)
+
+    # Huruf "S" putih di tengah
+    font = QFont("Ubuntu", 34, QFont.Weight.Bold)
+    painter.setFont(font)
+    painter.setPen(QColor("#ffffff"))
+    painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "S")
+
+    painter.end()
+    return QIcon(pixmap)

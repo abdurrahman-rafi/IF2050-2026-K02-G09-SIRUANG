@@ -1,4 +1,5 @@
 {
   "notification_hours_before": 2,
-  "notification_max_display": 10
+  "notification_max_display": 10,
+  "notification_interval_minutes": 5
 }

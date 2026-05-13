@@ -6,10 +6,11 @@ from typing import TYPE_CHECKING, Callable, List, Optional, Set
 from PyQt6.QtCore import QTimer
 
 if TYPE_CHECKING:
+    from src.config.notification_config import NotificationConfig
     from src.controller.notifikasi_controller import NotifikasiController
     from src.entity.notifikasi import Notifikasi
 
-INTERVAL_MS: int = 5 * 60 * 1000
+_DEFAULT_INTERVAL_MS: int = 5 * 60 * 1000
 
 logger = logging.getLogger(__name__)
 
@@ -23,13 +24,24 @@ class NotificationService:
     Penyimpanan notifikasi ke database dilakukan oleh NotifikasiController.
     """
 
-    def __init__(self, interval_ms: int = INTERVAL_MS) -> None:
+    def __init__(
+        self,
+        config: Optional[NotificationConfig] = None,
+        interval_ms: Optional[int] = None,
+    ) -> None:
         self._sudah_dikirim: Set[str] = set()
         self._on_notifikasi_baru: List[Callable[[Notifikasi], None]] = []
         self._notifikasi_controller: Optional[NotifikasiController] = None
 
+        if interval_ms is not None:
+            resolved_ms = interval_ms
+        elif config is not None:
+            resolved_ms = config.notification_interval_minutes * 60 * 1000
+        else:
+            resolved_ms = _DEFAULT_INTERVAL_MS
+
         self._timer = QTimer()
-        self._timer.setInterval(interval_ms)
+        self._timer.setInterval(resolved_ms)
         self._timer.timeout.connect(self._tick)
 
     def set_controller(self, controller: NotifikasiController) -> None:
@@ -70,20 +82,29 @@ class NotificationService:
 
     def _tick(self) -> None:
         """Dipanggil otomatis tiap interval: cek reservasi yang hampir berakhir."""
+        from datetime import datetime
+        print(f"[SCHEDULER] _tick fired at {datetime.now().strftime('%H:%M:%S')}")
+
         if self._notifikasi_controller is None:
-            logger.debug("_tick: controller belum diset, dilewati.")
+            print("[SCHEDULER] controller belum diset, dilewati.")
             return
 
         try:
             semua_reservasi = self._notifikasi_controller._data_repository.get_list_reservasi()
-        except Exception:
-            logger.exception("Gagal mengambil daftar reservasi dari repository.")
+            print(f"[SCHEDULER] total reservasi di memory: {len(semua_reservasi)}")
+            for r in semua_reservasi:
+                print(f"  → id={r.id_reservasi}  tanggal={r.tanggal_dibuat}  selesai={r.jam_selesai}  status={r.status}")
+        except Exception as e:
+            print(f"[SCHEDULER] ERROR ambil reservasi: {e}")
+            import traceback; traceback.print_exc()
             return
 
         try:
             hampir_berakhir = self._notifikasi_controller.periksa_reservasi_akan_berakhir(semua_reservasi)
-        except Exception:
-            logger.exception("Error saat memeriksa reservasi hampir berakhir.")
+            print(f"[SCHEDULER] hampir berakhir: {len(hampir_berakhir)}")
+        except Exception as e:
+            print(f"[SCHEDULER] ERROR periksa: {e}")
+            import traceback; traceback.print_exc()
             return
 
         for reservasi in hampir_berakhir:
@@ -91,14 +112,18 @@ class NotificationService:
             if id_res is None:
                 continue
             if id_res in self._sudah_dikirim:
+                print(f"[SCHEDULER] {id_res} sudah pernah dikirim, skip.")
                 continue
             try:
                 sent = self._notifikasi_controller.kirim_notifikasi(id_res)
                 if sent is not None:
                     self._sudah_dikirim.add(id_res)
-                    logger.debug("Notifikasi dikirim untuk reservasi %s", id_res)
-            except Exception:
-                logger.exception("Gagal memproses notifikasi untuk reservasi %s.", id_res)
+                    print(f"[SCHEDULER] notifikasi BERHASIL dikirim untuk {id_res}")
+                else:
+                    print(f"[SCHEDULER] kirim_notifikasi mengembalikan None untuk {id_res}")
+            except Exception as e:
+                print(f"[SCHEDULER] ERROR kirim notifikasi {id_res}: {e}")
+                import traceback; traceback.print_exc()
 
     # ------------------------------------------------------------------
     # Public: fire callbacks (DB save is done by controller before calling this)

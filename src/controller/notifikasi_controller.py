@@ -89,16 +89,19 @@ class NotifikasiController:
 
         reservasi = self._data_repository.cari_reservasi(id_reservasi)
         if reservasi is None:
+            print(f"[NOTIF] cari_reservasi({id_reservasi}) → tidak ditemukan")
             return None
 
         sekarang = datetime.now()
         try:
             jam_selesai_dt = datetime.combine(reservasi.tanggal_dibuat, reservasi.jam_selesai)
             sisa_jam = max(1, round((jam_selesai_dt - sekarang).total_seconds() / 3600))
-        except Exception:
+        except Exception as e:
+            print(f"[NOTIF] gagal hitung sisa jam: {e}")
             sisa_jam = self._config.notification_hours_before
 
         pesan = f"Booking {id_reservasi} akan segera berakhir dalam {sisa_jam} jam."
+        print(f"[NOTIF] membuat notifikasi: {pesan}")
 
         notifikasi = Notifikasi(
             id_notifikasi=str(uuid.uuid4()),
@@ -108,7 +111,8 @@ class NotifikasiController:
             sudah_dibaca=False,
         )
 
-        self.simpan_notifikasi(notifikasi)
+        ok = self.simpan_notifikasi(notifikasi)
+        print(f"[NOTIF] simpan_notifikasi → {ok}")
         berhasil = self._notification_service.kirim(notifikasi)
         return notifikasi if berhasil else None
 
@@ -124,10 +128,13 @@ class NotifikasiController:
             True jika berhasil.
         """
         try:
-            self._data_repository.tambah_notifikasi(notifikasi)
-            return True
-        except Exception:
-            logger.exception("Gagal menyimpan notifikasi %s", notifikasi.id_notifikasi)
+            ok = self._data_repository.tambah_notifikasi(notifikasi)
+            if not ok:
+                print(f"[NOTIF] tambah_notifikasi returned False untuk {notifikasi.id_notifikasi}")
+            return ok
+        except Exception as e:
+            print(f"[NOTIF] EXCEPTION simpan_notifikasi: {e}")
+            import traceback; traceback.print_exc()
             return False
 
     def sudah_dibaca(self, id_notifikasi: str) -> bool:

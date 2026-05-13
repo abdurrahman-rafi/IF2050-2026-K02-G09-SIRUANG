@@ -26,7 +26,7 @@ def main() -> None:
 
     repository = DataRepository(db_manager)
     notification_config = NotificationConfig()
-    notification_service = NotificationService()
+    notification_service = NotificationService(config=notification_config)
 
     notifikasi_ctrl = NotifikasiController(repository, notification_service, notification_config)
     warga_ctrl = WargaController(repository)
@@ -46,8 +46,13 @@ def main() -> None:
         repository,
     )
 
-    # Daftarkan callback: badge navbar diperbarui setiap kali notifikasi baru masuk
+    # Daftarkan callback: badge navbar + desktop toast
     notification_service.register_callback(lambda _notif: window.perbarui_badge_notifikasi(0))
+    notification_service.register_callback(
+        lambda n: window.tampilkan_desktop_notification(
+            "SIRUANG — Reservasi Hampir Berakhir", n.pesan_notifikasi
+        )
+    )
 
     # Mulai scheduler setelah window siap
     notification_service.start_scheduler()
