@@ -13,7 +13,7 @@ from src.service.notification_service import NotificationService
 from src.view.main_window import MainWindow
 
 # TODO: pindahkan konfigurasi database ke file .env atau config.ini
-DATABASE_URL = "postgresql://postgres:password@localhost:5432/siruang"
+DATABASE_URL = "postgresql://postgres:123456@localhost:5432/siruang"
 
 
 def main() -> None:
@@ -38,6 +38,7 @@ def main() -> None:
         reservasi_ctrl,
         laporan_ctrl,
         notifikasi_ctrl,
+        repository,
     )
     window.show()
 
