@@ -1,4 +1,5 @@
 PyQt6>=6.4.0
+python-dotenv>=1.0.0
 # Pilih salah satu sesuai database yang digunakan:
 # mysql-connector-python>=8.0.33   # untuk MySQL 8.0+
 psycopg2-binary>=2.9.6             # untuk PostgreSQL
