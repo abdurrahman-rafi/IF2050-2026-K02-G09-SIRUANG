@@ -40,6 +40,7 @@ class DataRepository:
                     Decimal(str(row["harga_per_jam"])),
                     row["deskripsi"] or "",
                     StatusFasilitas(row["status"]),
+                    row.get("gambar", "") or "",
                 )
             )
 
@@ -161,12 +162,12 @@ class DataRepository:
             True jika penyimpanan berhasil, False jika gagal.
         """
         query = (
-            "INSERT INTO fasilitas (id_fasilitas, nama, harga_per_jam, deskripsi, status) "
-            "VALUES (%s, %s, %s, %s, %s)"
+            "INSERT INTO fasilitas (id_fasilitas, nama, harga_per_jam, deskripsi, status, gambar) "
+            "VALUES (%s, %s, %s, %s, %s, %s)"
         )
         berhasil = self._database_manager.simpan_data(
             query,
-            (f.id_fasilitas, f.nama, f.harga_per_jam, f.deskripsi, f.status.value),
+            (f.id_fasilitas, f.nama, f.harga_per_jam, f.deskripsi, f.status.value, f.gambar),
         )
         if berhasil:
             self._list_fasilitas.append(f)
@@ -210,12 +211,12 @@ class DataRepository:
         if indeks is None:
             return False
         query = (
-            "UPDATE fasilitas SET nama=%s, harga_per_jam=%s, deskripsi=%s, status=%s "
+            "UPDATE fasilitas SET nama=%s, harga_per_jam=%s, deskripsi=%s, status=%s, gambar=%s "
             "WHERE id_fasilitas=%s"
         )
         berhasil = self._database_manager.simpan_data(
             query,
-            (f.nama, f.harga_per_jam, f.deskripsi, f.status.value, f.id_fasilitas),
+            (f.nama, f.harga_per_jam, f.deskripsi, f.status.value, f.gambar, f.id_fasilitas),
         )
         if berhasil:
             self._list_fasilitas[indeks] = f

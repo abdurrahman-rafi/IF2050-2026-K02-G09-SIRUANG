@@ -42,6 +42,7 @@ class FasilitasController:
         harga_per_jam: Decimal,
         deskripsi: str,
         status: StatusFasilitas,
+        gambar: str = "",
     ) -> bool:
         """Menambahkan data fasilitas baru ke sistem setelah validasi data."""
         if not self.validasi_data_fasilitas(nama, harga_per_jam, deskripsi, status):
@@ -49,7 +50,7 @@ class FasilitasController:
         from src.entity.fasilitas import Fasilitas
         id_baru = str(uuid.uuid4())
         fasilitas_baru = Fasilitas(
-            id_baru, nama, Decimal(str(harga_per_jam)), deskripsi, status
+            id_baru, nama, Decimal(str(harga_per_jam)), deskripsi, status, gambar
         )
         return self._data_repository.tambah_fasilitas(fasilitas_baru)
 
@@ -68,6 +69,7 @@ class FasilitasController:
         harga_per_jam: Decimal,
         deskripsi: str,
         status: StatusFasilitas,
+        gambar: str = "",
     ) -> bool:
         """Memperbarui data fasilitas yang sudah tersimpan berdasarkan ID."""
         if not self.validasi_data_fasilitas(nama, harga_per_jam, deskripsi, status):
@@ -75,7 +77,7 @@ class FasilitasController:
         fasilitas = self._data_repository.cari_fasilitas(id_fasilitas)
         if fasilitas is None:
             return False
-        fasilitas.ubah_data(nama, Decimal(str(harga_per_jam)), deskripsi, status)
+        fasilitas.ubah_data(nama, Decimal(str(harga_per_jam)), deskripsi, status, gambar)
         return self._data_repository.ubah_fasilitas(fasilitas)
 
     def cek_reservasi_aktif_fasilitas(self, id_fasilitas: str) -> bool:

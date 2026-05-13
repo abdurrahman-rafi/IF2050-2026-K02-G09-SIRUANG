@@ -12,12 +12,14 @@ class Fasilitas:
         harga_per_jam: Decimal,
         deskripsi: str,
         status: StatusFasilitas,
+        gambar: str = "",
     ) -> None:
         self._id_fasilitas: str = id_fasilitas
         self._nama: str = nama
         self._harga_per_jam: Decimal = harga_per_jam
         self._deskripsi: str = deskripsi
         self._status: StatusFasilitas = status
+        self._gambar: str = gambar or ""
 
     def ubah_data(
         self,
@@ -25,12 +27,14 @@ class Fasilitas:
         harga_per_jam: Decimal,
         deskripsi: str,
         status: StatusFasilitas,
+        gambar: str = "",
     ) -> bool:
         """Memperbarui atribut fasilitas berdasarkan input baru dari controller."""
         self._nama = nama
         self._harga_per_jam = harga_per_jam
         self._deskripsi = deskripsi
         self._status = status
+        self._gambar = gambar or ""
         return True
 
     def get_detail_fasilitas(self) -> Fasilitas:
@@ -56,3 +60,7 @@ class Fasilitas:
     @property
     def status(self) -> StatusFasilitas:
         return self._status
+
+    @property
+    def gambar(self) -> str:
+        return self._gambar
