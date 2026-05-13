@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, List, Optional
 from PyQt6.QtCore import (
     QAbstractAnimation, QDate, QEasingCurve, QPropertyAnimation, Qt, QTime, QTimer,
 )
-from PyQt6.QtGui import QColor, QPixmap
+from PyQt6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPixmap
 from PyQt6.QtWidgets import (
     QComboBox,
     QDateEdit,
@@ -46,8 +46,61 @@ if TYPE_CHECKING:
 
 _IMG_DIR = Path(__file__).parent.parent.parent / "img"
 
-_CARD_W = 260
-_CARD_H = 250
+_IMG_H = 160   # tinggi area gambar / gradien
+_CARD_MIN_W = 240
+
+
+class _CardImage(QWidget):
+    """Header kartu: gambar (jika ada) atau gradien dengan inisial nama fasilitas."""
+
+    def __init__(self, fasilitas: "Fasilitas", parent: QWidget = None) -> None:
+        super().__init__(parent)
+        self._fasilitas = fasilitas
+        self.setFixedHeight(_IMG_H)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+    def paintEvent(self, event) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Clip hanya sudut atas (radius 12px)
+        path = QPainterPath()
+        r = self.rect()
+        radius = 12.0
+        path.moveTo(r.left() + radius, r.top())
+        path.lineTo(r.right() - radius, r.top())
+        path.quadTo(r.right(), r.top(), r.right(), r.top() + radius)
+        path.lineTo(r.right(), r.bottom())
+        path.lineTo(r.left(), r.bottom())
+        path.lineTo(r.left(), r.top() + radius)
+        path.quadTo(r.left(), r.top(), r.left() + radius, r.top())
+        path.closeSubpath()
+        p.setClipPath(path)
+
+        gambar_path = _IMG_DIR / self._fasilitas.gambar if self._fasilitas.gambar else None
+        if gambar_path and gambar_path.exists():
+            pm = QPixmap(str(gambar_path)).scaled(
+                self.width(), self.height(),
+                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            p.drawPixmap(0, 0, pm)
+        else:
+            grad = QLinearGradient(0, 0, self.width(), self.height())
+            grad.setColorAt(0.0, QColor("#003773"))
+            grad.setColorAt(1.0, QColor("#4182fa"))
+            p.fillRect(r, grad)
+
+            # Inisial nama fasilitas sebagai ikon
+            font = QFont()
+            font.setPointSize(36)
+            font.setBold(True)
+            p.setFont(font)
+            p.setPen(QColor(255, 255, 255, 170))
+            initial = self._fasilitas.nama[0].upper() if self._fasilitas.nama else "F"
+            p.drawText(r, Qt.AlignmentFlag.AlignCenter, initial)
+
+        p.end()
 
 
 class _FasilitasCard(QFrame):
@@ -65,12 +118,16 @@ class _FasilitasCard(QFrame):
     def enterEvent(self, event) -> None:  # noqa: N802
         super().enterEvent(event)
         if self.graphicsEffect() is self._shadow:
-            self._shadow.setBlurRadius(28)
+            self._shadow.setBlurRadius(26)
+            self._shadow.setOffset(0, 7)
+            self._shadow.setColor(QColor(0, 0, 0, 28))
 
     def leaveEvent(self, event) -> None:  # noqa: N802
         super().leaveEvent(event)
         if self.graphicsEffect() is self._shadow:
-            self._shadow.setBlurRadius(14)
+            self._shadow.setBlurRadius(16)
+            self._shadow.setOffset(0, 2)
+            self._shadow.setColor(QColor(0, 0, 0, 20))
 
 
 class FasilitasView(QWidget):
@@ -411,6 +468,7 @@ class FasilitasView(QWidget):
         rh.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         rh.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         rh.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        riwayat_tabel.verticalHeader().setDefaultSectionSize(44)
 
         try:
             riwayat = self._data_repository.cari_reservasi_by_fasilitas(fasilitas.id_fasilitas)
@@ -455,6 +513,38 @@ class FasilitasView(QWidget):
                 st_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 riwayat_tabel.setItem(row, 4, st_item)
 
+        def _buka_detail_reservasi_fasilitas(row: int, col: int, res_list=riwayat) -> None:
+            if row >= len(res_list):
+                return
+            r = res_list[row]
+            try:
+                warga_obj = self._data_repository.cari_warga(r.id_warga)
+                nama_w = warga_obj.nama if warga_obj else r.id_warga
+            except Exception:
+                nama_w = r.id_warga
+            tgl = r.tanggal_dibuat.strftime("%d/%m/%Y") if r.tanggal_dibuat else "-"
+            jam = (
+                f"{r.jam_mulai.strftime('%H:%M')} – {r.jam_selesai.strftime('%H:%M')}"
+                if r.jam_mulai and r.jam_selesai else "-"
+            )
+            biaya = "Rp " + f"{int(r.total_biaya):,}".replace(",", ".")
+            d = QDialog(self)
+            d.setWindowTitle("Detail Reservasi")
+            d.setMinimumWidth(380)
+            fl = QFormLayout(d)
+            fl.setSpacing(10)
+            fl.addRow("Warga:", QLabel(nama_w))
+            fl.addRow("Tanggal:", QLabel(tgl))
+            fl.addRow("Jam:", QLabel(jam))
+            fl.addRow("Total Biaya:", QLabel(biaya))
+            fl.addRow("Status:", QLabel(r.status.value))
+            btn_tutup = QPushButton("Tutup")
+            btn_tutup.setProperty("outline", "true")
+            btn_tutup.clicked.connect(d.accept)
+            fl.addRow(btn_tutup)
+            d.exec()
+
+        riwayat_tabel.cellDoubleClicked.connect(_buka_detail_reservasi_fasilitas)
         right_layout.addWidget(riwayat_tabel)
 
         two_col.addWidget(left_card, 1)
@@ -503,8 +593,8 @@ class FasilitasView(QWidget):
 
     def _buat_kartu(self, fasilitas: Fasilitas) -> _FasilitasCard:
         shadow = QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(14)
-        shadow.setOffset(0, 3)
+        shadow.setBlurRadius(16)
+        shadow.setOffset(0, 2)
         shadow.setColor(QColor(0, 0, 0, 20))
 
         card = _FasilitasCard(
@@ -512,12 +602,11 @@ class FasilitasView(QWidget):
             shadow=shadow,
         )
         card.setFrameShape(QFrame.Shape.NoFrame)
-        card.setFixedSize(_CARD_W, _CARD_H)
+        card.setMinimumWidth(_CARD_MIN_W)
         card.setCursor(Qt.CursorShape.PointingHandCursor)
         card.setToolTip("Klik untuk melihat detail")
         card.setStyleSheet(
             "QFrame { background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; }"
-            "QFrame:hover { border-color: #4182fa; }"
         )
         card.setGraphicsEffect(shadow)
 
@@ -525,45 +614,39 @@ class FasilitasView(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        img_label = QLabel()
-        img_label.setFixedSize(_CARD_W, 130)
-        img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        gambar_path = _IMG_DIR / fasilitas.gambar if fasilitas.gambar else None
-        if gambar_path and gambar_path.exists():
-            pixmap = QPixmap(str(gambar_path))
-            img_label.setPixmap(
-                pixmap.scaled(
-                    _CARD_W, 130,
-                    Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                    Qt.TransformationMode.SmoothTransformation,
-                )
-            )
-            img_label.setStyleSheet("border-radius: 12px 12px 0 0; border: none;")
-        else:
-            img_label.setStyleSheet(
-                "background: qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-                "stop:0 #003773,stop:1 #4182fa);"
-                "border-radius: 12px 12px 0 0; border: none;"
-            )
-
-        outer.addWidget(img_label)
+        outer.addWidget(_CardImage(fasilitas, card))
 
         body = QWidget()
         body.setStyleSheet("background: transparent; border: none;")
         body_layout = QVBoxLayout(body)
-        body_layout.setContentsMargins(16, 12, 16, 14)
-        body_layout.setSpacing(5)
+        body_layout.setContentsMargins(16, 14, 16, 16)
+        body_layout.setSpacing(4)
 
         label_nama = QLabel(fasilitas.nama)
         label_nama.setStyleSheet(
-            "font-size: 14px; font-weight: 700; color: #1a1a2e; background: transparent;"
+            "font-size: 15px; font-weight: 700; color: #1a1a2e; background: transparent;"
         )
         label_nama.setWordWrap(True)
 
         harga_str = "Rp " + f"{int(fasilitas.harga_per_jam):,}".replace(",", ".") + "/jam"
         label_harga = QLabel(harga_str)
-        label_harga.setStyleSheet("color: #64748b; font-size: 12px; background: transparent;")
+        label_harga.setStyleSheet(
+            "color: #4182fa; font-size: 13px; font-weight: 600; background: transparent;"
+        )
+
+        body_layout.addWidget(label_nama)
+        body_layout.addWidget(label_harga)
+
+        if fasilitas.deskripsi:
+            body_layout.addSpacing(4)
+            label_desc = QLabel(fasilitas.deskripsi)
+            label_desc.setStyleSheet(
+                "color: #64748b; font-size: 12px; background: transparent;"
+            )
+            label_desc.setWordWrap(True)
+            body_layout.addWidget(label_desc)
+
+        body_layout.addSpacing(10)
 
         if fasilitas.status == StatusFasilitas.READY_TO_BOOK:
             teks_status, warna_fg, warna_bg = "TERSEDIA", "#166534", "#dcfce7"
@@ -573,13 +656,11 @@ class FasilitasView(QWidget):
         label_status = QLabel(teks_status)
         label_status.setStyleSheet(
             f"color: {warna_fg}; background: {warna_bg}; border-radius: 10px;"
-            " padding: 2px 10px; font-size: 10px; font-weight: 700; border: none;"
+            " padding: 3px 10px; font-size: 11px; font-weight: 700; border: none;"
         )
         label_status.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        label_status.adjustSize()
 
-        body_layout.addWidget(label_nama)
-        body_layout.addWidget(label_harga)
-        body_layout.addStretch()
         body_layout.addWidget(label_status)
         outer.addWidget(body)
 
@@ -632,11 +713,21 @@ class FasilitasView(QWidget):
             self._grid.addWidget(frame_kosong, 0, 0)
             return
 
-        jumlah_kolom = 4
+        jumlah_kolom = 3
         for i, fasilitas in enumerate(daftar_fasilitas):
             kartu = self._buat_kartu(fasilitas)
             self._grid.addWidget(kartu, i // jumlah_kolom, i % jumlah_kolom)
             QTimer.singleShot(i * 55, lambda k=kartu: self._fade_in_card(k))
+
+        # Isi kolom kosong agar distribusi rata
+        remainder = len(daftar_fasilitas) % jumlah_kolom
+        if remainder:
+            last_row = len(daftar_fasilitas) // jumlah_kolom
+            for c in range(remainder, jumlah_kolom):
+                spacer_w = QWidget()
+                spacer_w.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+                spacer_w.setStyleSheet("background: transparent;")
+                self._grid.addWidget(spacer_w, last_row, c)
 
     def tampilkan_form_tambah_fasilitas(self) -> None:
         """Menampilkan dialog form input untuk menambahkan data fasilitas baru."""
