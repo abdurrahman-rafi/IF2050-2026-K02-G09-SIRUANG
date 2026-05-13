@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
@@ -42,6 +43,7 @@ class WargaView(QWidget):
         self._data_repository: DataRepository = data_repository
         self._search_input: QLineEdit | None = None
         self._table_warga: QTableWidget | None = None
+        self._daftar_warga_tampil: List[Warga] = []
 
     def tampilkan_form_tambah_warga(self) -> None:
         """Menampilkan dialog form input data warga baru (nama, alamat, nomor HP)."""
@@ -102,7 +104,9 @@ class WargaView(QWidget):
         hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         hdr.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
-        self._table_warga.setColumnWidth(3, 160)
+        self._table_warga.setColumnWidth(3, 170)
+        self._table_warga.verticalHeader().setDefaultSectionSize(40)
+        self._table_warga.cellDoubleClicked.connect(self._on_warga_double_click)
 
         root_layout.addLayout(header_layout)
         root_layout.addWidget(self._search_input)
@@ -138,6 +142,7 @@ class WargaView(QWidget):
         if self._table_warga is None:
             return
 
+        self._daftar_warga_tampil = list(daftar_warga)
         self._table_warga.setRowCount(len(daftar_warga))
         for row, warga in enumerate(daftar_warga):
             self._table_warga.setItem(row, 0, QTableWidgetItem(warga.nama))
@@ -146,26 +151,40 @@ class WargaView(QWidget):
 
             aksi_widget = QWidget()
             aksi_layout = QHBoxLayout(aksi_widget)
-            aksi_layout.setContentsMargins(4, 2, 4, 2)
+            aksi_layout.setContentsMargins(4, 4, 4, 4)
             aksi_layout.setSpacing(6)
 
+            _SS_PRIMARY = (
+                "QPushButton { padding: 3px 10px; min-height: 22px; border-radius: 6px;"
+                " background-color: #003773; color: white; font-weight: 600;"
+                " font-size: 12px; border: none; }"
+                "QPushButton:hover { background-color: #002555; }"
+                "QPushButton:pressed { background-color: #001f40; }"
+            )
+            _SS_DANGER = (
+                "QPushButton { padding: 3px 10px; min-height: 22px; border-radius: 6px;"
+                " background-color: #ef4444; color: white; font-weight: 600;"
+                " font-size: 12px; border: none; }"
+                "QPushButton:hover { background-color: #dc2626; }"
+            )
+
             tombol_lihat = QPushButton("Lihat")
-            tombol_lihat.setFixedHeight(28)
+            tombol_lihat.setStyleSheet(_SS_PRIMARY)
             tombol_lihat.clicked.connect(
                 lambda checked=False, id_warga=warga.id_warga: self.tampilkan_detail_warga(id_warga)
             )
 
             tombol_hapus = QPushButton("Hapus")
-            tombol_hapus.setFixedHeight(28)
-            tombol_hapus.setProperty("danger", "true")
+            tombol_hapus.setStyleSheet(_SS_DANGER)
             tombol_hapus.clicked.connect(
                 lambda checked=False, id_warga=warga.id_warga: self._hapus_warga_dari_tabel(id_warga)
             )
 
             aksi_layout.addWidget(tombol_lihat)
             aksi_layout.addWidget(tombol_hapus)
-            aksi_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            aksi_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
             self._table_warga.setCellWidget(row, 3, aksi_widget)
+            self._table_warga.setRowHeight(row, 40)
 
     def _filter_tabel_warga(self, keyword: str) -> None:
         keyword = keyword.strip().lower()
@@ -179,6 +198,12 @@ class WargaView(QWidget):
                 or keyword in warga.no_hp.lower()
             ]
         self._isi_tabel_warga(daftar_warga)
+
+    def _on_warga_double_click(self, row: int, col: int) -> None:
+        if col == 3:
+            return
+        if row < len(self._daftar_warga_tampil):
+            self.tampilkan_detail_warga(self._daftar_warga_tampil[row].id_warga)
 
     def _hapus_warga_dari_tabel(self, id_warga: str) -> None:
         if not self.tampilkan_konfirmasi_hapus(id_warga):
@@ -332,6 +357,39 @@ class WargaView(QWidget):
                 st_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 tabel.setItem(row, 4, st_item)
 
+        def _buka_detail_reservasi(row: int, col: int, res_list=reservasi_warga) -> None:
+            if row >= len(res_list):
+                return
+            r = res_list[row]
+            try:
+                fas_obj = self._data_repository.cari_fasilitas(r.id_fasilitas)
+                nama_fas = fas_obj.nama if fas_obj else r.id_fasilitas
+            except Exception:
+                nama_fas = r.id_fasilitas
+            tgl = r.tanggal_dibuat.strftime("%d/%m/%Y") if r.tanggal_dibuat else "-"
+            jam = (
+                f"{r.jam_mulai.strftime('%H:%M')} – {r.jam_selesai.strftime('%H:%M')}"
+                if r.jam_mulai and r.jam_selesai else "-"
+            )
+            biaya = "Rp " + f"{int(r.total_biaya):,}".replace(",", ".")
+            status = r.status.value
+            d = QDialog(self)
+            d.setWindowTitle("Detail Reservasi")
+            d.setMinimumWidth(380)
+            fl = QFormLayout(d)
+            fl.setSpacing(10)
+            fl.addRow("Fasilitas:", QLabel(nama_fas))
+            fl.addRow("Tanggal:", QLabel(tgl))
+            fl.addRow("Jam:", QLabel(jam))
+            fl.addRow("Total Biaya:", QLabel(biaya))
+            fl.addRow("Status:", QLabel(status))
+            btn_tutup = QPushButton("Tutup")
+            btn_tutup.setProperty("outline", "true")
+            btn_tutup.clicked.connect(d.accept)
+            fl.addRow(btn_tutup)
+            d.exec()
+
+        tabel.cellDoubleClicked.connect(_buka_detail_reservasi)
         card_layout.addWidget(tabel)
         root_layout.addWidget(card)
 
