@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional
 
 from PyQt6.QtCore import Qt
@@ -304,7 +305,14 @@ class MainWindow(QMainWindow):
         layout.addSpacing(12)
 
         self._notifikasi_view = NotifikasiView(self._notifikasi_ctrl, parent=self)
-        notif_widget = self._notifikasi_view.create_navbar_icon()
+        _img_dir = Path(__file__).resolve().parents[2] / "img"
+        notif_icon: Optional[QIcon] = None
+        for _name in ("notifikasi.png", "notifikasi.jpg"):
+            _p = _img_dir / _name
+            if _p.exists():
+                notif_icon = QIcon(str(_p))
+                break
+        notif_widget = self._notifikasi_view.create_navbar_icon(notif_icon)
         self._notifikasi_view.start_badge_pulse()
         layout.addWidget(notif_widget)
 
