@@ -53,17 +53,16 @@ class TestNotifikasiController:
 
     def test_sudah_dibaca_berhasil(self, controller, mock_repo):
         """Menguji pembaruan status sudah_dibaca menjadi True berhasil."""
-        mock_notifikasi = MagicMock()
-        mock_repo.cari_notifikasi.return_value = mock_notifikasi
+        mock_repo.update_sudah_dibaca.return_value = True
 
         hasil = controller.sudah_dibaca("n-001")
 
         assert hasil is True
-        mock_notifikasi.tandai_sudah_dibaca.assert_called_once()
+        mock_repo.update_sudah_dibaca.assert_called_once_with("n-001")
 
     def test_sudah_dibaca_notifikasi_tidak_ditemukan(self, controller, mock_repo):
         """Menguji pembaruan status notifikasi yang tidak ada harus mengembalikan False."""
-        mock_repo.cari_notifikasi.return_value = None
+        mock_repo.update_sudah_dibaca.return_value = False
 
         hasil = controller.sudah_dibaca("n-tidak-ada")
 
