@@ -42,9 +42,11 @@ class NotificationService:
             self._on_notifikasi_baru.append(fn)
 
     def start_scheduler(self) -> None:
-        """Mulai background timer periodik."""
+        """Mulai background timer periodik dan langsung jalankan pengecekan pertama."""
         try:
             self._timer.start()
+            # Cek langsung saat event loop mulai, tanpa menunggu interval pertama (5 menit)
+            QTimer.singleShot(0, self._tick)
             logger.debug("NotificationService scheduler started, interval=%s ms", self._timer.interval())
         except Exception:
             logger.exception("Gagal memulai scheduler NotificationService.")
