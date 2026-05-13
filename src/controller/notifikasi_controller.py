@@ -160,6 +160,25 @@ class NotifikasiController:
             semua_sorted = semua
         return semua_sorted[: self._config.notification_max_display]
 
+    def get_jam_notifikasi(self) -> int:
+        """Kembalikan jumlah jam sebelum berakhir yang digunakan sebagai ambang notifikasi."""
+        return self._config.notification_hours_before
+
+    def simpan_jam_sebelum(self, hours: int) -> None:
+        """Simpan nilai jam_sebelum baru ke config dan perbarui interval scheduler.
+
+        Parameter:
+            hours: Jumlah jam sebelum jam_selesai reservasi untuk mengirim notifikasi (>= 1).
+        """
+        self._config.simpan(
+            hours,
+            self._config.notification_max_display,
+            self._config.notification_interval_minutes,
+        )
+        self._notification_service.perbarui_interval(
+            self._config.notification_interval_minutes * 60_000
+        )
+
     def create_notifikasi(self, id_reservasi: str, pesan: str) -> bool:
         """Buat dan simpan notifikasi baru dengan pesan kustom.
 
