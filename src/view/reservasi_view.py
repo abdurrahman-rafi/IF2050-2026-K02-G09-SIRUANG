@@ -62,9 +62,9 @@ class ReservasiView(QWidget):
         input_jam_selesai = QTimeEdit()
 
         spin_jam_notif = QSpinBox()
-        spin_jam_notif.setRange(1, 24)
-        spin_jam_notif.setValue(self._reservasi_ctrl.get_jam_notifikasi())
-        spin_jam_notif.setSuffix(" jam sebelum berakhir")
+        spin_jam_notif.setRange(1, 1440)
+        spin_jam_notif.setValue(self._reservasi_ctrl.get_menit_notifikasi())
+        spin_jam_notif.setSuffix(" menit sebelum berakhir")
 
         layout.addRow("ID Warga:", input_warga)
         layout.addRow("ID Fasilitas:", input_fasilitas)
