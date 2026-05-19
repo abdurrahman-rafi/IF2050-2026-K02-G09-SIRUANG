@@ -805,6 +805,10 @@ class FasilitasView(QWidget):
                     "Gagal menambahkan fasilitas. Pastikan nama tidak kosong dan harga lebih dari 0."
                 )
 
+    def muat_ulang(self) -> None:
+        """Reset ke halaman daftar fasilitas (dipanggil saat navbar diklik)."""
+        self._ke_daftar()
+
     def tampilkan_detail_fasilitas(self, fasilitas: Fasilitas) -> None:
         """Menampilkan halaman detail fasilitas yang dipilih."""
         self._tampilkan_halaman_detail(fasilitas)

@@ -351,6 +351,9 @@ class MainWindow(QMainWindow):
 
     def navigasi_ke_fasilitas(self) -> None:
         """Menampilkan halaman Daftar Fasilitas sebagai konten utama."""
+        fasilitas_page = self._stack.widget(_PAGE_FASILITAS)
+        if isinstance(fasilitas_page, FasilitasView):
+            fasilitas_page.muat_ulang()
         self._navigasi_ke("Fasilitas", _PAGE_FASILITAS)
 
     def navigasi_ke_warga(self) -> None:
