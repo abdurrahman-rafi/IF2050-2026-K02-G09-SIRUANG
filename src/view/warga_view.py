@@ -44,6 +44,7 @@ class WargaView(QWidget):
         self._search_input: QLineEdit | None = None
         self._table_warga: QTableWidget | None = None
         self._daftar_warga_tampil: List[Warga] = []
+        self._warga_sort_asc: bool | None = None
 
     def tampilkan_form_tambah_warga(self) -> None:
         """Menampilkan dialog form input data warga baru (nama, alamat, nomor HP)."""
@@ -107,12 +108,19 @@ class WargaView(QWidget):
         self._table_warga.setColumnWidth(3, 170)
         self._table_warga.verticalHeader().setDefaultSectionSize(40)
         self._table_warga.cellDoubleClicked.connect(self._on_warga_double_click)
+        hdr.setSectionsClickable(True)
+        hdr.sectionClicked.connect(self._on_warga_header_click)
+        if self._warga_sort_asc is not None:
+            indicator = " ↑" if self._warga_sort_asc else " ↓"
+        else:
+            indicator = " ↕"
+        self._table_warga.setHorizontalHeaderItem(0, QTableWidgetItem("Nama" + indicator))
 
         root_layout.addLayout(header_layout)
         root_layout.addWidget(self._search_input)
         root_layout.addWidget(self._table_warga)
 
-        self._isi_tabel_warga(self._warga_controller.lihat_daftar_warga())
+        self._filter_tabel_warga("")
 
     def _siapkan_root_layout(self) -> QVBoxLayout:
         layout = self.layout()
@@ -137,6 +145,16 @@ class WargaView(QWidget):
         widget = item.widget()
         if widget is not None:
             widget.deleteLater()
+
+    def _on_warga_header_click(self, col: int) -> None:
+        if col != 0:
+            return
+        self._warga_sort_asc = not self._warga_sort_asc if self._warga_sort_asc is not None else True
+        if self._table_warga is not None:
+            indicator = " ↑" if self._warga_sort_asc else " ↓"
+            self._table_warga.setHorizontalHeaderItem(0, QTableWidgetItem("Nama" + indicator))
+        keyword = self._search_input.text() if self._search_input else ""
+        self._filter_tabel_warga(keyword)
 
     def _isi_tabel_warga(self, daftar_warga: List[Warga]) -> None:
         if self._table_warga is None:
@@ -197,6 +215,10 @@ class WargaView(QWidget):
                 or keyword in warga.alamat.lower()
                 or keyword in warga.no_hp.lower()
             ]
+        if self._warga_sort_asc is not None:
+            daftar_warga = sorted(
+                daftar_warga, key=lambda w: w.nama.lower(), reverse=not self._warga_sort_asc
+            )
         self._isi_tabel_warga(daftar_warga)
 
     def _on_warga_double_click(self, row: int, col: int) -> None:
