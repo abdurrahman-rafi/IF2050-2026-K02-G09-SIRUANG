@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 from src.entity.enums import StatusFasilitas, StatusReservasi
 from src.entity.fasilitas import Fasilitas
+from src.entity.fasilitas_maintenance import FasilitasMaintenance
 from src.entity.notifikasi import Notifikasi
 from src.entity.reservasi import Reservasi
 from src.entity.warga import Warga
@@ -23,6 +24,7 @@ class DataRepository:
         self._list_fasilitas: List[Fasilitas] = []
         self._list_reservasi: List[Reservasi] = []
         self._list_notifikasi: List[Notifikasi] = []
+        self._list_maintenance: List[FasilitasMaintenance] = []
         self._muat_data()
 
     def _muat_data(self) -> None:
@@ -68,6 +70,20 @@ class DataRepository:
                     bool(row["sudah_dibaca"]),
                 )
             )
+
+        try:
+            for row in self._database_manager.ambil_data("SELECT * FROM fasilitas_maintenance", ()):
+                self._list_maintenance.append(
+                    FasilitasMaintenance(
+                        row["id_maintenance"],
+                        row["id_fasilitas"],
+                        row["tanggal_mulai"],
+                        row["tanggal_selesai"],
+                        row.get("keterangan") or "",
+                    )
+                )
+        except Exception:
+            pass
 
     # Warga
 
@@ -134,6 +150,7 @@ class DataRepository:
 
     def hapus_warga(self, w: Warga) -> bool:
         """Menghapus objek warga dari list in-memory dan database.
+        Reservasi yang sudah LUNAS tetap tersimpan dengan id_warga di-set NULL (ON DELETE SET NULL).
 
         Parameter:
             w: Objek Warga yang akan dihapus.
@@ -147,6 +164,9 @@ class DataRepository:
             "DELETE FROM warga WHERE id_warga=%s", (w.id_warga,)
         )
         if berhasil:
+            for r in self._list_reservasi:
+                if r.id_warga == w.id_warga:
+                    r._id_warga = None
             self._list_warga = [x for x in self._list_warga if x.id_warga != w.id_warga]
         return berhasil
 
@@ -479,3 +499,68 @@ class DataRepository:
         if berhasil:
             n.tandai_sudah_dibaca()
         return berhasil
+
+    # FasilitasMaintenance
+
+    def tambah_maintenance(self, m: FasilitasMaintenance) -> bool:
+        """Menyimpan jadwal maintenance fasilitas ke in-memory dan database.
+
+        Parameter:
+            m: Objek FasilitasMaintenance yang akan disimpan.
+
+        Returns:
+            True jika berhasil.
+        """
+        query = (
+            "INSERT INTO fasilitas_maintenance "
+            "(id_maintenance, id_fasilitas, tanggal_mulai, tanggal_selesai, keterangan) "
+            "VALUES (%s, %s, %s, %s, %s)"
+        )
+        berhasil = self._database_manager.simpan_data(
+            query,
+            (m.id_maintenance, m.id_fasilitas, m.tanggal_mulai, m.tanggal_selesai, m.keterangan),
+        )
+        if berhasil:
+            self._list_maintenance.append(m)
+        return berhasil
+
+    def hapus_maintenance_by_fasilitas(self, id_fasilitas: str) -> bool:
+        """Menghapus semua record maintenance untuk fasilitas tertentu.
+
+        Parameter:
+            id_fasilitas: ID fasilitas yang maintenance-nya akan dihapus.
+
+        Returns:
+            True jika berhasil (atau tidak ada record yang dihapus).
+        """
+        self._database_manager.hapus_data(
+            "DELETE FROM fasilitas_maintenance WHERE id_fasilitas=%s", (id_fasilitas,)
+        )
+        self._list_maintenance = [m for m in self._list_maintenance if m.id_fasilitas != id_fasilitas]
+        return True
+
+    def get_maintenance_by_fasilitas(self, id_fasilitas: str) -> List[FasilitasMaintenance]:
+        """Mengambil semua jadwal maintenance untuk fasilitas tertentu.
+
+        Parameter:
+            id_fasilitas: ID fasilitas yang dicari maintenance-nya.
+
+        Returns:
+            List FasilitasMaintenance untuk fasilitas tersebut.
+        """
+        return [m for m in self._list_maintenance if m.id_fasilitas == id_fasilitas]
+
+    def cek_tanggal_dalam_maintenance(self, id_fasilitas: str, tanggal: date) -> bool:
+        """Memeriksa apakah tanggal reservasi jatuh dalam periode maintenance fasilitas.
+
+        Parameter:
+            id_fasilitas: ID fasilitas yang dicek.
+            tanggal: Tanggal reservasi yang akan diperiksa.
+
+        Returns:
+            True jika tanggal dalam periode maintenance, False jika tidak.
+        """
+        return any(
+            m.id_fasilitas == id_fasilitas and m.tanggal_mulai <= tanggal <= m.tanggal_selesai
+            for m in self._list_maintenance
+        )
