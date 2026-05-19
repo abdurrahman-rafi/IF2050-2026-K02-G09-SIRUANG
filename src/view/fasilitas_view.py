@@ -10,6 +10,7 @@ from PyQt6.QtCore import (
 from PyQt6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPixmap
 from PyQt6.QtWidgets import (
     QComboBox,
+    QCompleter,
     QDateEdit,
     QDialog,
     QDialogButtonBox,
@@ -354,9 +355,10 @@ class FasilitasView(QWidget):
                 maint = self._controller.get_maintenance_aktif(fasilitas.id_fasilitas)
             except Exception:
                 maint = None
-            maint_card = QFrame()
+            maint_card = QWidget()
+            maint_card.setObjectName("maintBanner")
             maint_card.setStyleSheet(
-                "QFrame { background: #fef3c7; border: 1.5px solid #d97706;"
+                "#maintBanner { background: #fef3c7; border: 1.5px solid #d97706;"
                 " border-radius: 10px; }"
             )
             maint_layout = QVBoxLayout(maint_card)
@@ -364,7 +366,8 @@ class FasilitasView(QWidget):
             maint_layout.setSpacing(4)
             maint_title = QLabel("Fasilitas Sedang Maintenance")
             maint_title.setStyleSheet(
-                "font-size: 14px; font-weight: 700; color: #92400e; background: transparent;"
+                "font-size: 14px; font-weight: 700; color: #92400e;"
+                " background: transparent; border: none;"
             )
             maint_layout.addWidget(maint_title)
             if maint:
@@ -401,14 +404,27 @@ class FasilitasView(QWidget):
         )
         left_layout.addWidget(form_title)
 
-        combo_warga = QComboBox()
+        _id_warga_terpilih = [None]
+        warga_nama_to_id: dict = {}
         try:
             daftar_warga = self._data_repository.get_warga_list()
-            combo_warga.addItem("-- Pilih Warga --", None)
-            for w in daftar_warga:
-                combo_warga.addItem(w.nama, w.id_warga)
+            warga_nama_to_id = {w.nama: w.id_warga for w in daftar_warga}
         except Exception:
-            combo_warga.addItem("-- Pilih Warga --", None)
+            pass
+
+        input_warga = QLineEdit()
+        input_warga.setPlaceholderText("Ketik nama warga untuk mencari...")
+
+        completer_warga = QCompleter(list(warga_nama_to_id.keys()), input_warga)
+        completer_warga.setFilterMode(Qt.MatchFlag.MatchContains)
+        completer_warga.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        completer_warga.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+        input_warga.setCompleter(completer_warga)
+
+        def on_warga_dipilih(text: str) -> None:
+            _id_warga_terpilih[0] = warga_nama_to_id.get(text)
+
+        completer_warga.activated.connect(on_warga_dipilih)
 
         input_tanggal = QDateEdit(QDate.currentDate())
         input_tanggal.setCalendarPopup(True)
@@ -449,7 +465,7 @@ class FasilitasView(QWidget):
         form = QFormLayout()
         form.setSpacing(12)
         form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
-        form.addRow("Pilih Warga", combo_warga)
+        form.addRow("Pilih Warga", input_warga)
         form.addRow("Tanggal", input_tanggal)
         form.addRow("Jam Mulai", input_jam_mulai)
         form.addRow("Jam Selesai", input_jam_selesai)
@@ -465,9 +481,9 @@ class FasilitasView(QWidget):
             if self._reservasi_ctrl is None:
                 self.tampilkan_pesan_error("Fitur reservasi tidak tersedia.")
                 return
-            id_warga_val = combo_warga.currentData()
+            id_warga_val = _id_warga_terpilih[0] or warga_nama_to_id.get(input_warga.text().strip())
             if id_warga_val is None:
-                self.tampilkan_pesan_error("Pilih warga terlebih dahulu.")
+                self.tampilkan_pesan_error("Pilih warga dari daftar yang tersedia.")
                 return
             berhasil = self._reservasi_ctrl.tambah_reservasi(
                 id_warga_val,
@@ -609,8 +625,9 @@ class FasilitasView(QWidget):
 
     def _buat_card(self) -> QFrame:
         card = QFrame()
+        card.setObjectName("infoCard")
         card.setStyleSheet(
-            "QFrame { background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; }"
+            "#infoCard { background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; }"
         )
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(12)
