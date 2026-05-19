@@ -373,11 +373,15 @@ class FasilitasView(QWidget):
                     f"{maint.tanggal_selesai.strftime('%d/%m/%Y')}"
                 )
                 maint_tgl = QLabel(f"Periode: {tgl_str}")
-                maint_tgl.setStyleSheet("font-size: 13px; color: #78350f; background: transparent;")
+                maint_tgl.setStyleSheet(
+                    "font-size: 13px; color: #78350f; background: transparent; border: none;"
+                )
                 maint_layout.addWidget(maint_tgl)
                 if maint.keterangan:
                     maint_ket = QLabel(f"Keterangan: {maint.keterangan}")
-                    maint_ket.setStyleSheet("font-size: 12px; color: #92400e; background: transparent;")
+                    maint_ket.setStyleSheet(
+                        "font-size: 12px; color: #92400e; background: transparent; border: none;"
+                    )
                     maint_layout.addWidget(maint_ket)
             layout.addWidget(maint_card)
 
