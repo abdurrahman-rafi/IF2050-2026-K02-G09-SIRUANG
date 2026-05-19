@@ -348,6 +348,39 @@ class FasilitasView(QWidget):
         detail_card_outer.addWidget(dc_inner)
         layout.addWidget(detail_card)
 
+        # Maintenance info banner
+        if fasilitas.status == StatusFasilitas.MAINTENANCE:
+            try:
+                maint = self._controller.get_maintenance_aktif(fasilitas.id_fasilitas)
+            except Exception:
+                maint = None
+            maint_card = QFrame()
+            maint_card.setStyleSheet(
+                "QFrame { background: #fef3c7; border: 1.5px solid #d97706;"
+                " border-radius: 10px; }"
+            )
+            maint_layout = QVBoxLayout(maint_card)
+            maint_layout.setContentsMargins(20, 14, 20, 14)
+            maint_layout.setSpacing(4)
+            maint_title = QLabel("Fasilitas Sedang Maintenance")
+            maint_title.setStyleSheet(
+                "font-size: 14px; font-weight: 700; color: #92400e; background: transparent;"
+            )
+            maint_layout.addWidget(maint_title)
+            if maint:
+                tgl_str = (
+                    f"{maint.tanggal_mulai.strftime('%d/%m/%Y')} – "
+                    f"{maint.tanggal_selesai.strftime('%d/%m/%Y')}"
+                )
+                maint_tgl = QLabel(f"Periode: {tgl_str}")
+                maint_tgl.setStyleSheet("font-size: 13px; color: #78350f; background: transparent;")
+                maint_layout.addWidget(maint_tgl)
+                if maint.keterangan:
+                    maint_ket = QLabel(f"Keterangan: {maint.keterangan}")
+                    maint_ket.setStyleSheet("font-size: 12px; color: #92400e; background: transparent;")
+                    maint_layout.addWidget(maint_ket)
+            layout.addWidget(maint_card)
+
         # Two-column row
         two_col = QHBoxLayout()
         two_col.setSpacing(20)
@@ -375,6 +408,7 @@ class FasilitasView(QWidget):
 
         input_tanggal = QDateEdit(QDate.currentDate())
         input_tanggal.setCalendarPopup(True)
+        input_tanggal.setMinimumDate(QDate.currentDate())
 
         input_jam_mulai = QTimeEdit(QTime(9, 0))
         input_jam_selesai = QTimeEdit(QTime(11, 0))
@@ -445,7 +479,11 @@ class FasilitasView(QWidget):
             else:
                 self.tampilkan_pesan_error(
                     "Gagal menambahkan reservasi.\n"
-                    "Pastikan jadwal tidak bentrok dan jam selesai > jam mulai."
+                    "Pastikan:\n"
+                    "• Tanggal tidak di masa lalu\n"
+                    "• Fasilitas tidak sedang maintenance\n"
+                    "• Jadwal tidak bentrok\n"
+                    "• Jam selesai > jam mulai"
                 )
 
         btn_simpan_res.clicked.connect(proses_simpan)
@@ -495,10 +533,10 @@ class FasilitasView(QWidget):
             riwayat_tabel.setRowCount(len(riwayat))
             for row, r in enumerate(riwayat):
                 try:
-                    warga_obj = self._data_repository.cari_warga(r.id_warga)
-                    nama_warga = warga_obj.nama if warga_obj else r.id_warga
+                    warga_obj = self._data_repository.cari_warga(r.id_warga) if r.id_warga else None
+                    nama_warga = warga_obj.nama if warga_obj else ("(Warga Dihapus)" if not r.id_warga else r.id_warga)
                 except Exception:
-                    nama_warga = r.id_warga
+                    nama_warga = r.id_warga or "(Warga Dihapus)"
 
                 tgl_str = r.tanggal_dibuat.strftime("%d/%m/%Y") if r.tanggal_dibuat else "-"
                 jam_str = (
@@ -745,14 +783,21 @@ class FasilitasView(QWidget):
         dialog = _FormFasilitasDialog("Tambah Fasilitas Baru", parent=self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             data = dialog.get_data()
-            berhasil = self._controller.tambah_fasilitas(
+            id_baru = self._controller.tambah_fasilitas(
                 data["nama"],
                 data["harga_per_jam"],
                 data["deskripsi"],
                 data["status"],
                 data.get("gambar", ""),
             )
-            if berhasil:
+            if id_baru:
+                if data["status"] == StatusFasilitas.MAINTENANCE and "tanggal_mulai_maintenance" in data:
+                    self._controller.set_maintenance(
+                        id_baru,
+                        data["tanggal_mulai_maintenance"],
+                        data["tanggal_selesai_maintenance"],
+                        data.get("keterangan_maintenance", ""),
+                    )
                 self.tampilkan_pesan_berhasil("Fasilitas berhasil ditambahkan.")
                 self._muat_fasilitas()
             else:
@@ -778,6 +823,15 @@ class FasilitasView(QWidget):
                 data.get("gambar", ""),
             )
             if berhasil:
+                if data["status"] == StatusFasilitas.MAINTENANCE and "tanggal_mulai_maintenance" in data:
+                    self._controller.set_maintenance(
+                        fasilitas.id_fasilitas,
+                        data["tanggal_mulai_maintenance"],
+                        data["tanggal_selesai_maintenance"],
+                        data.get("keterangan_maintenance", ""),
+                    )
+                elif data["status"] != StatusFasilitas.MAINTENANCE:
+                    self._controller.hapus_maintenance(fasilitas.id_fasilitas)
                 self.tampilkan_pesan_berhasil("Fasilitas berhasil diperbarui.")
                 self._ke_daftar()
             else:
@@ -857,6 +911,17 @@ class _FormFasilitasDialog(QDialog):
         for s in StatusFasilitas:
             self._input_status.addItem(s.value.replace("_", " "), s)
 
+        self._lbl_maintenance = QLabel("Jadwal Maintenance")
+        self._lbl_maintenance.setStyleSheet(
+            "font-weight: 600; color: #92400e; background: transparent;"
+        )
+        self._input_tanggal_mulai = QDateEdit(QDate.currentDate())
+        self._input_tanggal_mulai.setCalendarPopup(True)
+        self._input_tanggal_selesai = QDateEdit(QDate.currentDate().addDays(7))
+        self._input_tanggal_selesai.setCalendarPopup(True)
+        self._input_keterangan_maintenance = QLineEdit()
+        self._input_keterangan_maintenance.setPlaceholderText("Contoh: Perbaikan atap (opsional)")
+
         if fasilitas is not None:
             self._input_nama.setText(fasilitas.nama)
             self._input_harga.setValue(float(fasilitas.harga_per_jam))
@@ -873,19 +938,57 @@ class _FormFasilitasDialog(QDialog):
         layout.addRow("", QLabel("Simpan file gambar di folder /img/"))
         layout.addRow("Status", self._input_status)
 
+        self._row_lbl_maint = layout.rowCount()
+        layout.addRow("", self._lbl_maintenance)
+        layout.addRow("Mulai Maintenance", self._input_tanggal_mulai)
+        layout.addRow("Selesai Maintenance", self._input_tanggal_selesai)
+        layout.addRow("Keterangan", self._input_keterangan_maintenance)
+
+        self._input_status.currentIndexChanged.connect(self._on_status_changed)
+        self._on_status_changed()
+
         tombol = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
         tombol.button(QDialogButtonBox.StandardButton.Ok).setText("Simpan")
-        tombol.accepted.connect(self.accept)
+        tombol.accepted.connect(self._validasi_dan_accept)
         tombol.rejected.connect(self.reject)
         layout.addRow(tombol)
 
+    def _on_status_changed(self) -> None:
+        """Tampilkan/sembunyikan field maintenance sesuai status yang dipilih."""
+        is_maintenance = self._input_status.currentData() == StatusFasilitas.MAINTENANCE
+        self._lbl_maintenance.setVisible(is_maintenance)
+        self._input_tanggal_mulai.setVisible(is_maintenance)
+        self._input_tanggal_selesai.setVisible(is_maintenance)
+        self._input_keterangan_maintenance.setVisible(is_maintenance)
+
+    def _validasi_dan_accept(self) -> None:
+        """Validasi tanggal maintenance sebelum menyimpan form."""
+        if self._input_status.currentData() == StatusFasilitas.MAINTENANCE:
+            mulai = self._input_tanggal_mulai.date().toPyDate()
+            selesai = self._input_tanggal_selesai.date().toPyDate()
+            if selesai < mulai:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.warning(
+                    self,
+                    "Tanggal Tidak Valid",
+                    "Tanggal selesai maintenance harus sama atau setelah tanggal mulai.",
+                )
+                return
+        self.accept()
+
     def get_data(self) -> dict:
-        return {
+        status = self._input_status.currentData()
+        data: dict = {
             "nama": self._input_nama.text().strip(),
             "harga_per_jam": Decimal(str(int(self._input_harga.value()))),
             "deskripsi": self._input_deskripsi.toPlainText().strip(),
             "gambar": self._input_gambar.text().strip(),
-            "status": self._input_status.currentData(),
+            "status": status,
         }
+        if status == StatusFasilitas.MAINTENANCE:
+            data["tanggal_mulai_maintenance"] = self._input_tanggal_mulai.date().toPyDate()
+            data["tanggal_selesai_maintenance"] = self._input_tanggal_selesai.date().toPyDate()
+            data["keterangan_maintenance"] = self._input_keterangan_maintenance.text().strip()
+        return data

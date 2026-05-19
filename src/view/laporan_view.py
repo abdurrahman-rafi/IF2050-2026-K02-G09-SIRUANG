@@ -696,7 +696,9 @@ class LaporanView(QWidget):
     # Helper resolusi nama                                                 #
     # ------------------------------------------------------------------ #
 
-    def _resolve_nama_warga(self, id_warga: str) -> str:
+    def _resolve_nama_warga(self, id_warga) -> str:
+        if not id_warga:
+            return "(Warga Dihapus)"
         if self._data_repository is None:
             return id_warga
         try:
