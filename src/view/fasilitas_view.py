@@ -456,11 +456,11 @@ class FasilitasView(QWidget):
         hitung_estimasi()
 
         spin_jam_notif = QSpinBox()
-        spin_jam_notif.setRange(1, 24)
+        spin_jam_notif.setRange(1, 1440)
         spin_jam_notif.setValue(
-            self._reservasi_ctrl.get_jam_notifikasi() if self._reservasi_ctrl else 2
+            self._reservasi_ctrl.get_menit_notifikasi() if self._reservasi_ctrl else 60
         )
-        spin_jam_notif.setSuffix(" jam sebelum berakhir")
+        spin_jam_notif.setSuffix(" menit sebelum berakhir")
 
         form = QFormLayout()
         form.setSpacing(12)

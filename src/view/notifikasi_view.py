@@ -371,11 +371,11 @@ class _PengaturanNotifikasiDialog(QDialog):
         form = QFormLayout()
         form.setSpacing(12)
 
-        self._spin_jam = QSpinBox()
-        self._spin_jam.setRange(1, 24)
-        self._spin_jam.setValue(self._ctrl.get_jam_notifikasi())
-        self._spin_jam.setSuffix(" jam sebelum berakhir")
-        form.addRow("Notifikasi dikirim:", self._spin_jam)
+        self._spin_menit = QSpinBox()
+        self._spin_menit.setRange(1, 1440)
+        self._spin_menit.setValue(self._ctrl.get_menit_notifikasi())
+        self._spin_menit.setSuffix(" menit sebelum berakhir")
+        form.addRow("Notifikasi dikirim:", self._spin_menit)
 
         self._spin_interval = QSpinBox()
         self._spin_interval.setRange(1, 60)
@@ -421,7 +421,7 @@ class _PengaturanNotifikasiDialog(QDialog):
     def _simpan(self) -> None:
         """Simpan semua pengaturan notifikasi ke config."""
         try:
-            self._ctrl.simpan_jam_sebelum(self._spin_jam.value())
+            self._ctrl.simpan_menit_sebelum(self._spin_menit.value())
             self._ctrl.simpan_interval_menit(self._spin_interval.value())
             self._ctrl.simpan_max_display(self._spin_max.value())
             QMessageBox.information(self, "Berhasil", "Pengaturan notifikasi berhasil disimpan.")
