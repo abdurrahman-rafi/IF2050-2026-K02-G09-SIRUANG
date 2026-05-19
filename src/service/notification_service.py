@@ -47,6 +47,16 @@ class NotificationService:
     def set_controller(self, controller: NotifikasiController) -> None:
         """Inject NotifikasiController setelah inisialisasi."""
         self._notifikasi_controller = controller
+        # Pre-populate dari notifikasi yang sudah ada di DB agar tidak resend saat restart
+        try:
+            for n in controller._data_repository.get_list_notifikasi():
+                self._sudah_dikirim.add(n.id_reservasi)
+            logger.debug(
+                "NotificationService: %d entri pre-populated ke _sudah_dikirim dari DB.",
+                len(self._sudah_dikirim),
+            )
+        except Exception:
+            logger.exception("Gagal pre-populate _sudah_dikirim dari database.")
 
     def register_callback(self, fn: Callable[[Notifikasi], None]) -> None:
         """Daftarkan callback yang dipanggil saat notifikasi baru masuk (mencegah duplikat)."""

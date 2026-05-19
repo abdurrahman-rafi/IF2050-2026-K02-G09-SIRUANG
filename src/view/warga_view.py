@@ -278,8 +278,9 @@ class WargaView(QWidget):
 
         # Riwayat Reservasi card
         card = QFrame()
+        card.setObjectName("riwayatCard")
         card.setStyleSheet(
-            "QFrame { background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; }"
+            "#riwayatCard { background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; }"
         )
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(12)

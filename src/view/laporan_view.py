@@ -482,8 +482,9 @@ class LaporanView(QWidget):
 
     def _buat_card(self) -> QFrame:
         card = QFrame()
+        card.setObjectName("infoCard")
         card.setStyleSheet(
-            "QFrame { background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; }"
+            "#infoCard { background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; }"
         )
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(12)
@@ -696,7 +697,9 @@ class LaporanView(QWidget):
     # Helper resolusi nama                                                 #
     # ------------------------------------------------------------------ #
 
-    def _resolve_nama_warga(self, id_warga: str) -> str:
+    def _resolve_nama_warga(self, id_warga) -> str:
+        if not id_warga:
+            return "(Warga Dihapus)"
         if self._data_repository is None:
             return id_warga
         try:

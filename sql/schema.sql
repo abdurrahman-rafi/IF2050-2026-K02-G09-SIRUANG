@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS fasilitas (
 
 CREATE TABLE IF NOT EXISTS reservasi (
     id_reservasi  VARCHAR(36)    PRIMARY KEY,
-    id_warga      VARCHAR(36)    NOT NULL,
+    id_warga      VARCHAR(36),
     id_fasilitas  VARCHAR(36)    NOT NULL,
     tanggal_dibuat DATE          NOT NULL,
     jam_mulai     TIME           NOT NULL,
@@ -31,8 +31,19 @@ CREATE TABLE IF NOT EXISTS reservasi (
     -- status: 'BELUM_DIBAYAR' | 'LUNAS'
     CONSTRAINT chk_status_reservasi CHECK (status IN ('BELUM_DIBAYAR', 'LUNAS')),
     CONSTRAINT chk_jam CHECK (jam_selesai > jam_mulai),
-    CONSTRAINT fk_reservasi_warga     FOREIGN KEY (id_warga)    REFERENCES warga(id_warga),
+    CONSTRAINT fk_reservasi_warga     FOREIGN KEY (id_warga)    REFERENCES warga(id_warga) ON DELETE SET NULL,
     CONSTRAINT fk_reservasi_fasilitas FOREIGN KEY (id_fasilitas) REFERENCES fasilitas(id_fasilitas)
+);
+
+CREATE TABLE IF NOT EXISTS fasilitas_maintenance (
+    id_maintenance  VARCHAR(36) PRIMARY KEY,
+    id_fasilitas    VARCHAR(36) NOT NULL,
+    tanggal_mulai   DATE        NOT NULL,
+    tanggal_selesai DATE        NOT NULL,
+    keterangan      TEXT        DEFAULT '',
+    CONSTRAINT fk_maintenance_fasilitas
+        FOREIGN KEY (id_fasilitas) REFERENCES fasilitas(id_fasilitas) ON DELETE CASCADE,
+    CONSTRAINT chk_maintenance_dates CHECK (tanggal_selesai >= tanggal_mulai)
 );
 
 CREATE TABLE IF NOT EXISTS notifikasi (

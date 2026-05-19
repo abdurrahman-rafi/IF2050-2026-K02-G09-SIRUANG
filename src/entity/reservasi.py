@@ -1,6 +1,7 @@
 from __future__ import annotations
 from datetime import date, time
 from decimal import Decimal
+from typing import Optional
 
 from src.entity.enums import StatusReservasi
 
@@ -11,7 +12,7 @@ class Reservasi:
     def __init__(
         self,
         id_reservasi: str,
-        id_warga: str,
+        id_warga: Optional[str],
         id_fasilitas: str,
         tanggal_dibuat: date,
         jam_mulai: time,
@@ -20,7 +21,7 @@ class Reservasi:
         status: StatusReservasi,
     ) -> None:
         self._id_reservasi: str = id_reservasi
-        self._id_warga: str = id_warga
+        self._id_warga: Optional[str] = id_warga
         self._id_fasilitas: str = id_fasilitas
         self._tanggal_dibuat: date = tanggal_dibuat
         self._jam_mulai: time = jam_mulai
@@ -144,7 +145,7 @@ class Reservasi:
         return self._id_reservasi
 
     @property
-    def id_warga(self) -> str:
+    def id_warga(self) -> Optional[str]:
         return self._id_warga
 
     @property

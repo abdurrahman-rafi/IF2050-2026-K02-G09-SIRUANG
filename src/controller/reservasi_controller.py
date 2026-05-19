@@ -1,11 +1,13 @@
 from __future__ import annotations
 import uuid
-from datetime import date, time
+from datetime import date
+from datetime import date as _date_type
+from datetime import time
 from decimal import Decimal
 from typing import TYPE_CHECKING, List, Optional
 
+from src.entity.enums import StatusFasilitas, StatusReservasi
 from src.entity.reservasi import Reservasi
-from src.entity.enums import StatusReservasi
 
 if TYPE_CHECKING:
     from src.controller.notifikasi_controller import NotifikasiController
@@ -51,9 +53,19 @@ class ReservasiController:
         Returns:
             True jika reservasi berhasil disimpan, False jika validasi gagal.
         """
+        if tanggal < _date_type.today():
+            return False
+
+        fasilitas = self._data_repository.cari_fasilitas(id_fasilitas)
+        if fasilitas is None or fasilitas.status == StatusFasilitas.MAINTENANCE:
+            return False
+
+        if self._data_repository.cek_tanggal_dalam_maintenance(id_fasilitas, tanggal):
+            return False
+
         if not self.validasi_jadwal(id_fasilitas, tanggal, jam_mulai, jam_selesai):
             return False
-        
+
         id_reservasi_baru = f"RES-{uuid.uuid4().hex[:6].upper()}"
 
         total_biaya = self.hitung_total_biaya(id_fasilitas, jam_mulai, jam_selesai)
@@ -187,7 +199,10 @@ class ReservasiController:
         
         if reservasi_target.status == StatusReservasi.LUNAS:
             return False
-        
+
+        if tanggal < _date_type.today():
+            return False
+
         for res in semua_reservasi:
             if res.id_fasilitas == id_fasilitas and res.tanggal_dibuat == tanggal and res.id_reservasi != id_reservasi:
                 if res.jam_mulai < jam_selesai and res.jam_selesai > jam_mulai:

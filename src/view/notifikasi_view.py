@@ -6,6 +6,7 @@ from PyQt6.QtGui import QFont, QIcon
 from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
+    QFormLayout,
     QFrame,
     QGraphicsOpacityEffect,
     QHBoxLayout,
@@ -14,6 +15,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -322,6 +324,107 @@ class _DaftarNotifikasiDialog(QDialog):
         scroll.setWidget(cards_widget)
         layout.addWidget(scroll)
 
+        baris_bawah = QHBoxLayout()
+        btn_pengaturan = QPushButton("Pengaturan Notifikasi")
+        btn_pengaturan.setStyleSheet(
+            "QPushButton { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1;"
+            " border-radius: 6px; padding: 6px 14px; font-size: 12px; }"
+            "QPushButton:hover { background: #e2e8f0; }"
+        )
+        btn_pengaturan.clicked.connect(self._buka_pengaturan)
+        baris_bawah.addWidget(btn_pengaturan)
+        baris_bawah.addStretch()
         tombol = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         tombol.rejected.connect(self.reject)
-        layout.addWidget(tombol)
+        baris_bawah.addWidget(tombol)
+        layout.addLayout(baris_bawah)
+
+    def _buka_pengaturan(self) -> None:
+        """Buka dialog pengaturan notifikasi."""
+        dlg = _PengaturanNotifikasiDialog(self._notifikasi_controller, parent=self)
+        dlg.exec()
+
+
+class _PengaturanNotifikasiDialog(QDialog):
+    """Dialog pengaturan interval pengecekan dan tampilan notifikasi."""
+
+    def __init__(
+        self,
+        notifikasi_controller: NotifikasiController,
+        parent: QWidget = None,
+    ) -> None:
+        super().__init__(parent)
+        self._ctrl = notifikasi_controller
+        self.setWindowTitle("Pengaturan Notifikasi")
+        self.setMinimumWidth(380)
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(16)
+
+        judul = QLabel("Pengaturan Notifikasi")
+        judul.setStyleSheet("font-size: 15px; font-weight: 700; color: #1a1a2e;")
+        layout.addWidget(judul)
+
+        form = QFormLayout()
+        form.setSpacing(12)
+
+        self._spin_jam = QSpinBox()
+        self._spin_jam.setRange(1, 24)
+        self._spin_jam.setValue(self._ctrl.get_jam_notifikasi())
+        self._spin_jam.setSuffix(" jam sebelum berakhir")
+        form.addRow("Notifikasi dikirim:", self._spin_jam)
+
+        self._spin_interval = QSpinBox()
+        self._spin_interval.setRange(1, 60)
+        self._spin_interval.setValue(self._ctrl.get_interval_menit())
+        self._spin_interval.setSuffix(" menit")
+        form.addRow("Cek setiap:", self._spin_interval)
+
+        self._spin_max = QSpinBox()
+        self._spin_max.setRange(1, 50)
+        self._spin_max.setValue(self._ctrl.get_max_display())
+        self._spin_max.setSuffix(" notifikasi")
+        form.addRow("Tampilkan maks:", self._spin_max)
+
+        layout.addLayout(form)
+
+        hint = QLabel(
+            "Interval lebih kecil = lebih responsif, tapi lebih sering cek database."
+        )
+        hint.setWordWrap(True)
+        hint.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        layout.addWidget(hint)
+
+        baris = QHBoxLayout()
+        btn_batal = QPushButton("Batal")
+        btn_batal.setStyleSheet(
+            "QPushButton { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1;"
+            " border-radius: 6px; padding: 6px 16px; }"
+            "QPushButton:hover { background: #e2e8f0; }"
+        )
+        btn_batal.clicked.connect(self.reject)
+        btn_simpan = QPushButton("Simpan")
+        btn_simpan.setStyleSheet(
+            "QPushButton { background: #4182fa; color: white; border: none;"
+            " border-radius: 6px; padding: 6px 16px; font-weight: 600; }"
+            "QPushButton:hover { background: #2563eb; }"
+        )
+        btn_simpan.clicked.connect(self._simpan)
+        baris.addWidget(btn_batal)
+        baris.addStretch()
+        baris.addWidget(btn_simpan)
+        layout.addLayout(baris)
+
+    def _simpan(self) -> None:
+        """Simpan semua pengaturan notifikasi ke config."""
+        try:
+            self._ctrl.simpan_jam_sebelum(self._spin_jam.value())
+            self._ctrl.simpan_interval_menit(self._spin_interval.value())
+            self._ctrl.simpan_max_display(self._spin_max.value())
+            QMessageBox.information(self, "Berhasil", "Pengaturan notifikasi berhasil disimpan.")
+            self.accept()
+        except Exception as e:
+            QMessageBox.critical(self, "Gagal", f"Gagal menyimpan pengaturan: {e}")
