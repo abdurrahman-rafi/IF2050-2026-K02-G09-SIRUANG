@@ -27,9 +27,9 @@ class ReservasiController:
         self._data_repository: DataRepository = data_repository
         self._notifikasi_controller: NotifikasiController = notifikasi_controller
 
-    def get_jam_notifikasi(self) -> int:
-        """Kembalikan nilai jam notifikasi saat ini dari NotifikasiController."""
-        return self._notifikasi_controller.get_jam_notifikasi()
+    def get_menit_notifikasi(self) -> int:
+        """Kembalikan nilai menit notifikasi saat ini dari NotifikasiController."""
+        return self._notifikasi_controller.get_menit_notifikasi()
 
     # TODO
     def tambah_reservasi(
@@ -63,6 +63,9 @@ class ReservasiController:
         if self._data_repository.cek_tanggal_dalam_maintenance(id_fasilitas, tanggal):
             return False
 
+        if jam_selesai <= jam_mulai:
+            return False
+
         if not self.validasi_jadwal(id_fasilitas, tanggal, jam_mulai, jam_selesai):
             return False
 
@@ -81,8 +84,10 @@ class ReservasiController:
             status=StatusReservasi.BELUM_DIBAYAR
         )
 
-        self._data_repository.tambah_reservasi(reservasi_baru)
-        self._notifikasi_controller.simpan_jam_sebelum(jam_notifikasi_sebelum)
+        berhasil = self._data_repository.tambah_reservasi(reservasi_baru)
+        if not berhasil:
+            return False
+        self._notifikasi_controller.simpan_menit_sebelum(jam_notifikasi_sebelum)
         return True
         
 
@@ -139,8 +144,8 @@ class ReservasiController:
         detik_mulai = (jam_mulai.hour * 3600) + (jam_mulai.minute * 60) + jam_mulai.second
         detik_selesai = (jam_selesai.hour * 3600) + (jam_selesai.minute * 60) + jam_selesai.second
         durasi_detik = detik_selesai - detik_mulai
-        if durasi_detik < 0:
-            durasi_detik += 86400
+        if durasi_detik <= 0:
+            return Decimal("0")
         durasi_jam = Decimal(str(durasi_detik)) / Decimal('3600')
         return durasi_jam * harga_per_jam
         

@@ -46,7 +46,7 @@ class NotifikasiController:
         """
         hasil: List[Reservasi] = []
         sekarang = datetime.now()
-        batas_detik = self._config.notification_hours_before * 3600
+        batas_detik = self._config.notification_minutes_before * 60
 
         for reservasi in list_reservasi:
             # Hanya reservasi yang masih aktif (belum dibayar / belum selesai)
@@ -99,7 +99,7 @@ class NotifikasiController:
             sisa_str = self._format_sisa_waktu(sisa_detik)
         except Exception as e:
             print(f"[NOTIF] gagal hitung sisa waktu: {e}")
-            sisa_str = f"dalam {self._config.notification_hours_before} jam"
+            sisa_str = f"dalam {self._config.notification_minutes_before} menit"
 
         pesan = f"Booking {id_reservasi} akan segera berakhir {sisa_str}."
         print(f"[NOTIF] membuat notifikasi: {pesan}")
@@ -172,9 +172,9 @@ class NotifikasiController:
             semua_sorted = semua
         return semua_sorted[: self._config.notification_max_display]
 
-    def get_jam_notifikasi(self) -> int:
-        """Kembalikan jumlah jam sebelum berakhir yang digunakan sebagai ambang notifikasi."""
-        return self._config.notification_hours_before
+    def get_menit_notifikasi(self) -> int:
+        """Kembalikan jumlah menit sebelum berakhir yang digunakan sebagai ambang notifikasi."""
+        return self._config.notification_minutes_before
 
     def get_interval_menit(self) -> int:
         """Kembalikan interval pengecekan scheduler dalam menit."""
@@ -191,7 +191,7 @@ class NotifikasiController:
             minutes: Interval dalam menit (>= 1).
         """
         self._config.simpan(
-            self._config.notification_hours_before,
+            self._config.notification_minutes_before,
             self._config.notification_max_display,
             minutes,
         )
@@ -206,19 +206,19 @@ class NotifikasiController:
             max_display: Jumlah maksimum notifikasi di panel (>= 1).
         """
         self._config.simpan(
-            self._config.notification_hours_before,
+            self._config.notification_minutes_before,
             max_display,
             self._config.notification_interval_minutes,
         )
 
-    def simpan_jam_sebelum(self, hours: int) -> None:
-        """Simpan nilai jam_sebelum baru ke config dan perbarui interval scheduler.
+    def simpan_menit_sebelum(self, minutes: int) -> None:
+        """Simpan nilai menit_sebelum baru ke config.
 
         Parameter:
-            hours: Jumlah jam sebelum jam_selesai reservasi untuk mengirim notifikasi (>= 1).
+            minutes: Jumlah menit sebelum jam_selesai reservasi untuk mengirim notifikasi (>= 1).
         """
         self._config.simpan(
-            hours,
+            minutes,
             self._config.notification_max_display,
             self._config.notification_interval_minutes,
         )
