@@ -95,12 +95,13 @@ class NotifikasiController:
         sekarang = datetime.now()
         try:
             jam_selesai_dt = datetime.combine(reservasi.tanggal_dibuat, reservasi.jam_selesai)
-            sisa_jam = max(1, round((jam_selesai_dt - sekarang).total_seconds() / 3600))
+            sisa_detik = (jam_selesai_dt - sekarang).total_seconds()
+            sisa_str = self._format_sisa_waktu(sisa_detik)
         except Exception as e:
-            print(f"[NOTIF] gagal hitung sisa jam: {e}")
-            sisa_jam = self._config.notification_hours_before
+            print(f"[NOTIF] gagal hitung sisa waktu: {e}")
+            sisa_str = f"dalam {self._config.notification_hours_before} jam"
 
-        pesan = f"Booking {id_reservasi} akan segera berakhir dalam {sisa_jam} jam."
+        pesan = f"Booking {id_reservasi} akan segera berakhir {sisa_str}."
         print(f"[NOTIF] membuat notifikasi: {pesan}")
 
         notifikasi = Notifikasi(
@@ -115,6 +116,17 @@ class NotifikasiController:
         print(f"[NOTIF] simpan_notifikasi → {ok}")
         berhasil = self._notification_service.kirim(notifikasi)
         return notifikasi if berhasil else None
+
+    @staticmethod
+    def _format_sisa_waktu(total_detik: float) -> str:
+        total_menit = max(1, round(total_detik / 60))
+        if total_menit < 60:
+            return f"dalam {total_menit} menit"
+        jam = total_menit // 60
+        menit = total_menit % 60
+        if menit == 0:
+            return f"dalam {jam} jam"
+        return f"dalam {jam} jam {menit} menit"
 
     def simpan_notifikasi(self, notifikasi: Notifikasi) -> bool:
         """Simpan notifikasi ke DataRepository.
