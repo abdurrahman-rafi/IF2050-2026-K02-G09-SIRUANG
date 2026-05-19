@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, List, Optional
 
 from src.entity.enums import StatusFasilitas, StatusReservasi
+from src.entity.fasilitas_maintenance import FasilitasMaintenance
 
 if TYPE_CHECKING:
     from src.data.data_repository import DataRepository
@@ -43,16 +45,21 @@ class FasilitasController:
         deskripsi: str,
         status: StatusFasilitas,
         gambar: str = "",
-    ) -> bool:
-        """Menambahkan data fasilitas baru ke sistem setelah validasi data."""
+    ) -> Optional[str]:
+        """Menambahkan data fasilitas baru ke sistem setelah validasi data.
+
+        Returns:
+            ID fasilitas baru jika berhasil, None jika gagal.
+        """
         if not self.validasi_data_fasilitas(nama, harga_per_jam, deskripsi, status):
-            return False
+            return None
         from src.entity.fasilitas import Fasilitas
         id_baru = str(uuid.uuid4())
         fasilitas_baru = Fasilitas(
             id_baru, nama, Decimal(str(harga_per_jam)), deskripsi, status, gambar
         )
-        return self._data_repository.tambah_fasilitas(fasilitas_baru)
+        berhasil = self._data_repository.tambah_fasilitas(fasilitas_baru)
+        return id_baru if berhasil else None
 
     def lihat_daftar_fasilitas(self) -> List[Fasilitas]:
         """Mengambil seluruh data fasilitas dari DataRepository."""
@@ -95,3 +102,51 @@ class FasilitasController:
         if fasilitas is None:
             return False
         return self._data_repository.hapus_fasilitas(fasilitas)
+
+    def set_maintenance(
+        self,
+        id_fasilitas: str,
+        tanggal_mulai: date,
+        tanggal_selesai: date,
+        keterangan: str = "",
+    ) -> bool:
+        """Menyimpan atau memperbarui jadwal maintenance untuk fasilitas.
+        Record maintenance lama dihapus terlebih dahulu sebelum menyimpan yang baru.
+
+        Parameter:
+            id_fasilitas: ID fasilitas yang akan dijadwalkan maintenance.
+            tanggal_mulai: Tanggal mulai maintenance.
+            tanggal_selesai: Tanggal selesai maintenance.
+            keterangan: Catatan opsional tentang maintenance.
+
+        Returns:
+            True jika berhasil disimpan.
+        """
+        self._data_repository.hapus_maintenance_by_fasilitas(id_fasilitas)
+        m = FasilitasMaintenance(
+            str(uuid.uuid4()), id_fasilitas, tanggal_mulai, tanggal_selesai, keterangan
+        )
+        return self._data_repository.tambah_maintenance(m)
+
+    def get_maintenance_aktif(self, id_fasilitas: str) -> Optional[FasilitasMaintenance]:
+        """Mengambil record maintenance aktif untuk fasilitas (record pertama jika ada).
+
+        Parameter:
+            id_fasilitas: ID fasilitas yang dicari maintenance-nya.
+
+        Returns:
+            Objek FasilitasMaintenance jika ada, None jika tidak.
+        """
+        records = self._data_repository.get_maintenance_by_fasilitas(id_fasilitas)
+        return records[0] if records else None
+
+    def hapus_maintenance(self, id_fasilitas: str) -> bool:
+        """Menghapus semua record maintenance untuk fasilitas (saat status diubah ke READY_TO_BOOK).
+
+        Parameter:
+            id_fasilitas: ID fasilitas yang maintenance-nya akan dihapus.
+
+        Returns:
+            True jika berhasil.
+        """
+        return self._data_repository.hapus_maintenance_by_fasilitas(id_fasilitas)
