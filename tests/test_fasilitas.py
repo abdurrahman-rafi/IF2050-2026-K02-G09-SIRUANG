@@ -1,9 +1,11 @@
 import pytest
+from datetime import date
 from decimal import Decimal
 from unittest.mock import MagicMock
 
 from src.controller.fasilitas_controller import FasilitasController
 from src.entity.fasilitas import Fasilitas
+from src.entity.fasilitas_maintenance import FasilitasMaintenance
 from src.entity.enums import StatusFasilitas, StatusReservasi
 
 
@@ -41,7 +43,7 @@ class TestFasilitasController:
     """Test suite untuk FasilitasController (UC05-UC08)."""
 
     def test_tambah_fasilitas_valid(self, controller, mock_repo):
-        """Penambahan fasilitas dengan data valid harus berhasil dan memanggil repository."""
+        """Penambahan fasilitas dengan data valid mengembalikan ID baru dan memanggil repository."""
         mock_repo.tambah_fasilitas.return_value = True
 
         hasil = controller.tambah_fasilitas(
@@ -51,22 +53,23 @@ class TestFasilitasController:
             StatusFasilitas.READY_TO_BOOK,
         )
 
-        assert hasil is True
+        assert hasil is not None
+        assert isinstance(hasil, str)
         mock_repo.tambah_fasilitas.assert_called_once()
 
     def test_tambah_fasilitas_nama_kosong(self, controller):
-        """Penambahan fasilitas dengan nama kosong harus gagal tanpa memanggil repository."""
+        """Penambahan fasilitas dengan nama kosong harus mengembalikan None."""
         hasil = controller.tambah_fasilitas(
             "", Decimal("50000"), "deskripsi", StatusFasilitas.READY_TO_BOOK
         )
-        assert hasil is False
+        assert hasil is None
 
     def test_tambah_fasilitas_harga_nol(self, controller):
-        """Penambahan fasilitas dengan harga 0 harus gagal."""
+        """Penambahan fasilitas dengan harga 0 harus mengembalikan None."""
         hasil = controller.tambah_fasilitas(
             "Balai Warga", Decimal("0"), "deskripsi", StatusFasilitas.READY_TO_BOOK
         )
-        assert hasil is False
+        assert hasil is None
 
     def test_lihat_daftar_fasilitas(self, controller, mock_repo, fasilitas_contoh):
         """Pengambilan daftar fasilitas harus mengembalikan semua fasilitas dari repository."""
@@ -134,3 +137,77 @@ class TestFasilitasController:
         hasil = controller.cek_reservasi_aktif_fasilitas("f-001")
 
         assert hasil is True
+
+
+class TestFasilitasMaintenance:
+    """Test suite untuk manajemen jadwal maintenance fasilitas."""
+
+    def test_set_maintenance_berhasil(self, controller, mock_repo):
+        """set_maintenance harus menghapus record lama dan menyimpan record baru ke repository."""
+        mock_repo.hapus_maintenance_by_fasilitas.return_value = True
+        mock_repo.tambah_maintenance.return_value = True
+
+        hasil = controller.set_maintenance(
+            "f-001",
+            date(2026, 6, 1),
+            date(2026, 6, 14),
+            "Perbaikan atap",
+        )
+
+        assert hasil is True
+        mock_repo.hapus_maintenance_by_fasilitas.assert_called_once_with("f-001")
+        mock_repo.tambah_maintenance.assert_called_once()
+        record = mock_repo.tambah_maintenance.call_args[0][0]
+        assert record.id_fasilitas == "f-001"
+        assert record.tanggal_mulai == date(2026, 6, 1)
+        assert record.tanggal_selesai == date(2026, 6, 14)
+        assert record.keterangan == "Perbaikan atap"
+
+    def test_set_maintenance_tanpa_keterangan(self, controller, mock_repo):
+        """set_maintenance tanpa keterangan harus tetap berhasil dengan keterangan kosong."""
+        mock_repo.hapus_maintenance_by_fasilitas.return_value = True
+        mock_repo.tambah_maintenance.return_value = True
+
+        controller.set_maintenance("f-001", date(2026, 6, 1), date(2026, 6, 14))
+
+        record = mock_repo.tambah_maintenance.call_args[0][0]
+        assert record.keterangan == ""
+
+    def test_get_maintenance_aktif_ada(self, controller, mock_repo):
+        """get_maintenance_aktif harus mengembalikan record pertama jika ada."""
+        maint = FasilitasMaintenance("m-001", "f-001", date(2026, 6, 1), date(2026, 6, 14))
+        mock_repo.get_maintenance_by_fasilitas.return_value = [maint]
+
+        hasil = controller.get_maintenance_aktif("f-001")
+
+        assert hasil is maint
+        mock_repo.get_maintenance_by_fasilitas.assert_called_once_with("f-001")
+
+    def test_get_maintenance_aktif_tidak_ada(self, controller, mock_repo):
+        """get_maintenance_aktif harus mengembalikan None jika tidak ada record."""
+        mock_repo.get_maintenance_by_fasilitas.return_value = []
+
+        hasil = controller.get_maintenance_aktif("f-001")
+
+        assert hasil is None
+
+    def test_hapus_maintenance(self, controller, mock_repo):
+        """hapus_maintenance harus mendelegasikan ke repository dengan ID fasilitas yang benar."""
+        mock_repo.hapus_maintenance_by_fasilitas.return_value = True
+
+        hasil = controller.hapus_maintenance("f-001")
+
+        assert hasil is True
+        mock_repo.hapus_maintenance_by_fasilitas.assert_called_once_with("f-001")
+
+    def test_set_maintenance_mengganti_record_lama(self, controller, mock_repo):
+        """set_maintenance harus menghapus record lama sebelum menyimpan yang baru."""
+        mock_repo.hapus_maintenance_by_fasilitas.return_value = True
+        mock_repo.tambah_maintenance.return_value = True
+
+        controller.set_maintenance("f-001", date(2026, 6, 1), date(2026, 6, 14))
+        controller.set_maintenance("f-001", date(2026, 7, 1), date(2026, 7, 31))
+
+        assert mock_repo.hapus_maintenance_by_fasilitas.call_count == 2
+        record = mock_repo.tambah_maintenance.call_args[0][0]
+        assert record.tanggal_mulai == date(2026, 7, 1)

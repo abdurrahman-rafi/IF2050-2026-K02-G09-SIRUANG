@@ -164,6 +164,44 @@ class TestWargaController:
         assert result is True
         assert repo.cari_warga(warga.id_warga) is None
 
+    def test_hapus_warga_reservasi_lunas_id_warga_jadi_null(self, controller, repo, warga):
+        """Setelah warga dengan reservasi LUNAS dihapus, id_warga di reservasi harus jadi None."""
+        repo.tambah_warga(warga)
+        reservasi = buat_reservasi(warga.id_warga, StatusReservasi.LUNAS)
+        repo.tambah_reservasi(reservasi)
+
+        controller.hapus_warga(warga.id_warga)
+
+        assert reservasi.id_warga is None
+
+    def test_hapus_warga_data_reservasi_lunas_tetap_ada(self, controller, repo, warga):
+        """Setelah warga dihapus, data reservasi LUNAS tetap tersimpan di repository."""
+        repo.tambah_warga(warga)
+        reservasi = buat_reservasi(warga.id_warga, StatusReservasi.LUNAS)
+        repo.tambah_reservasi(reservasi)
+        id_res = reservasi.id_reservasi
+
+        controller.hapus_warga(warga.id_warga)
+
+        semua = repo.get_list_reservasi()
+        assert len(semua) == 1
+        assert semua[0].id_reservasi == id_res
+        assert semua[0].id_warga is None
+
+    def test_hapus_warga_beberapa_reservasi_lunas_semua_jadi_null(self, controller, repo, warga):
+        """Semua reservasi LUNAS milik warga yang dihapus harus memiliki id_warga None."""
+        repo.tambah_warga(warga)
+        res1 = Reservasi("r-001", warga.id_warga, "f-001", date(2026, 3, 1), time(9, 0), time(11, 0), Decimal("100000"), StatusReservasi.LUNAS)
+        res2 = Reservasi("r-002", warga.id_warga, "f-001", date(2026, 3, 2), time(13, 0), time(15, 0), Decimal("100000"), StatusReservasi.LUNAS)
+        repo.tambah_reservasi(res1)
+        repo.tambah_reservasi(res2)
+
+        controller.hapus_warga(warga.id_warga)
+
+        assert res1.id_warga is None
+        assert res2.id_warga is None
+        assert len(repo.get_list_reservasi()) == 2
+
     def test_cek_reservasi_aktif_warga_ada(self, controller, repo, warga):
         repo.tambah_warga(warga)
         repo.tambah_reservasi(buat_reservasi(warga.id_warga, StatusReservasi.BELUM_DIBAYAR))
