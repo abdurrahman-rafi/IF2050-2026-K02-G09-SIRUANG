@@ -39,6 +39,9 @@ if TYPE_CHECKING:
 class LaporanView(QWidget):
     """Tampilan laporan reservasi: daftar semua reservasi + detail inline + ringkasan pendapatan (UC12-UC13)."""
 
+    _HEADER_LABELS = ["Warga", "Fasilitas", "Tanggal", "Jam", "Total Biaya", "Status", "Aksi"]
+    _SORTABLE_COLS = {0, 1, 2, 4}
+
     def __init__(
         self,
         laporan_controller: LaporanController,
@@ -61,6 +64,8 @@ class LaporanView(QWidget):
         self._inner_stack: Optional[QStackedWidget] = None
         self._semua_reservasi: List[Reservasi] = []
         self._reservasi_tampil: List[Reservasi] = []
+        self._sort_col: int = -1
+        self._sort_asc: bool = True
 
         self._setup_ui()
         self._muat_reservasi()
@@ -240,6 +245,8 @@ class LaporanView(QWidget):
         self._tabel.setColumnWidth(6, 90)
 
         self._tabel.cellDoubleClicked.connect(self._on_tabel_double_click)
+        hdr.setSectionsClickable(True)
+        hdr.sectionClicked.connect(self._on_reservasi_header_click)
 
         return self._tabel
 
@@ -531,6 +538,42 @@ class LaporanView(QWidget):
             self._ke_detail(self._reservasi_tampil[row].id_reservasi)
 
     # ------------------------------------------------------------------ #
+    # Sort                                                                 #
+    # ------------------------------------------------------------------ #
+
+    def _on_reservasi_header_click(self, col: int) -> None:
+        if col not in self._SORTABLE_COLS:
+            return
+        if col == self._sort_col:
+            self._sort_asc = not self._sort_asc
+        else:
+            self._sort_col = col
+            self._sort_asc = True
+        self._perbarui_header_sort()
+        sort_keys = {
+            0: lambda r: self._resolve_nama_warga(r.id_warga).lower(),
+            1: lambda r: self._resolve_nama_fasilitas(r.id_fasilitas).lower(),
+            2: lambda r: r.tanggal_dibuat or date.min,
+            4: lambda r: float(r.total_biaya) if r.total_biaya else 0.0,
+        }
+        self._reservasi_tampil = sorted(
+            self._reservasi_tampil, key=sort_keys[col], reverse=not self._sort_asc
+        )
+        self._isi_tabel(self._reservasi_tampil)
+
+    def _perbarui_header_sort(self) -> None:
+        if self._tabel is None:
+            return
+        for i, label in enumerate(self._HEADER_LABELS):
+            if i == self._sort_col:
+                indicator = " ↑" if self._sort_asc else " ↓"
+            elif i in self._SORTABLE_COLS:
+                indicator = " ↕"
+            else:
+                indicator = ""
+            self._tabel.setHorizontalHeaderItem(i, QTableWidgetItem(label + indicator))
+
+    # ------------------------------------------------------------------ #
     # Data & filter                                                        #
     # ------------------------------------------------------------------ #
 
@@ -547,6 +590,8 @@ class LaporanView(QWidget):
         self._terapkan_filter()
 
     def _terapkan_filter(self) -> None:
+        self._sort_col = -1
+        self._sort_asc = True
         id_fasilitas = self._combo_fasilitas.currentData() if self._combo_fasilitas else None
         filter_status: Optional[StatusReservasi] = (
             self._combo_status.currentData() if self._combo_status else None
@@ -571,6 +616,7 @@ class LaporanView(QWidget):
             total = Decimal("0")
 
         self._perbarui_kartu_pendapatan(total, len(lunas_list))
+        self._perbarui_header_sort()
         self._isi_tabel(hasil)
 
     def _perbarui_kartu_pendapatan(self, total: Decimal, jumlah_lunas: int) -> None:
